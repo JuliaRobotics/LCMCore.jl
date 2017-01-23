@@ -13,6 +13,7 @@ export LCM,
 
 function encode end
 function decode end
+function fingerprint end
 
 
 const liblcm = "$(ENV["HOME"])/.julia/v0.5/PyLCM/deps/usr/lib/liblcm.dylib"
@@ -38,8 +39,20 @@ function close(lcm::LCM)
     end
 end
 
+function publish{T}(lcm::LCM, channel::AbstractString, msg::T)
+    buf = IOBuffer()
+    write(buf, fingerprint(T))
+    encode(buf, msg)
+    status = publish(lcm, convert(String, channel), buf.data)
+    if status == 0
+        return true
+    else
+        return false
+    end
+end
+
 function publish(lcm::LCM, channel::String, data::Vector{UInt8})
-    ccall((:lcm_publish, liblcm), Cint, (Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}, Cuint), channel, data, length(data))
+    ccall((:lcm_publish, liblcm), Cint, (Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}, Cuint), lcm, channel, data, length(data))
 end
 
 filedescriptor(lcm::LCM) = lcm.filedescriptor
@@ -56,22 +69,27 @@ type SubscriptionInfo{T, F}
     handler::F
 end
 
-function onresponse(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, info::SubscriptionInfo)
+function onresponse{T, F}(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, info::SubscriptionInfo{T, F})
     channel = unsafe_wrap(String, channelbytes)
-    msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
+    msgdata = IOBuffer(unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size))
     @show info
-    msg = decode(IOBuffer(msgdata), info.msgtype)
-    info.handler(channel, msg)
+    signature = read(msgdata, 8)
+    if signature != fingerprint(T)
+        warn("LCM Fingerprint for message type $T did not match. Expected: $(fingerprint(T)), got: $(signature)")
+    else
+        msg = decode(msgdata, info.msgtype)
+        info.handler(channel, msg)
+    end
     return nothing::Void
 end
 
-function subscribe{T}(lcm::LCM, channel::String, handler::Function, msgtype::Type{T})
-    info = SubscriptionInfo(msgtype, handler)
+function subscribe{T, F}(lcm::LCM, channel::String, handler::F, msgtype::Type{T})
+    info = SubscriptionInfo{T, F}(msgtype, handler)
     ccall((:lcm_subscribe, liblcm), Ptr{Void},
     (Ptr{Void}, Ptr{UInt8}, Ptr{Void}, Ptr{Void}),
     lcm,
     channel,
-    cfunction(onresponse, Void, (Ref{RecvBuf}, Ptr{UInt8}, Ref{typeof(info)})),
+    cfunction(onresponse, Void, (Ref{RecvBuf}, Ptr{UInt8}, Ref{SubscriptionInfo{T, F}})),
     Ref(info))
 end
 
