@@ -57,6 +57,15 @@ function close(lcm::LCM)
     end
 end
 
+function LCM(func::Function)
+    lcm = LCM()
+    try
+        func(lcm)
+    finally
+        close(lcm)
+    end
+end
+
 function publish{T}(lcm::LCM, channel::AbstractString, msg::T)
     data = encode(msg)
     publish(lcm, convert(String, channel), data)

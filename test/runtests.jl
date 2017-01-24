@@ -11,6 +11,13 @@ let
 end
 
 let
+    LCM() do lcm
+        publish(lcm, "CHANNEL_0", UInt8[1,2,3,4])
+    end
+end
+
+
+let
     lcm = LCM()
 
     did_check = false

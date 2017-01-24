@@ -92,4 +92,24 @@ decode(data::Vector{UInt8}, ::Type{MyMessageType}) = <return an instance of MyMe
 
 ## Complex Message Types
 
-Manually defining `encode()` and `decode()` functions is annoying. The easiest way to avoid this is to use [PyLCM.jl](https://github.com/rdeits/PyLCM.jl). PyLCM.jl uses LCMCore.jl under the hood, and also allows you to also encode and decode any Python LCM type automatically. 
+Manually defining `encode()` and `decode()` functions is annoying. The easiest way to avoid this is to use [PyLCM.jl](https://github.com/rdeits/PyLCM.jl). PyLCM.jl uses LCMCore.jl under the hood, and also allows you to also encode and decode any Python LCM type automatically.
+
+## Closing the LCM Object
+
+Spawning lots of LCM objects can result in your system running out of file descriptors. This rarely occurs in practice, but if it does happen, you can close an LCM object with:
+
+```julia
+close(lcm)
+```
+
+It's safe to call `close()` multiple times on the same LCM object.
+
+To deterministically close an LCM automatically, you can use the do-block syntax:
+
+```julia
+LCM() do lcm
+    publish(lcm, channel, message)
+end
+```
+
+which will automatically close the LCM object at the end of the block. 
