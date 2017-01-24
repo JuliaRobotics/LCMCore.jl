@@ -1,4 +1,14 @@
+__precompile__()
+
 module LCMCore
+
+depsjl = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")
+if !isfile(depsjl)
+    error("LCMCore not properly ",
+	    "installed. Please run\nPkg.build(\"LCMCore\")")
+else
+    include(depsjl)
+end
 
 import Base: unsafe_convert, read, write, close
 using Base.Dates: Period, Millisecond
@@ -8,15 +18,18 @@ export LCM,
        encode,
        decode,
        subscribe,
-       handle
+       handle,
+       FingerprintException
 
 
 function encode end
 function decode end
 function fingerprint end
 
+immutable FingerprintException <: Exception
+    msg::String
+end
 
-const liblcm = "$(ENV["HOME"])/.julia/v0.5/PyLCM/deps/usr/lib/liblcm.dylib"
 
 type LCM
     pointer::Ptr{Void}
@@ -40,10 +53,8 @@ function close(lcm::LCM)
 end
 
 function publish{T}(lcm::LCM, channel::AbstractString, msg::T)
-    buf = IOBuffer()
-    write(buf, fingerprint(T))
-    encode(buf, msg)
-    status = publish(lcm, convert(String, channel), buf.data)
+    data = encode(msg)
+    status = publish(lcm, convert(String, channel), data)
     if status == 0
         return true
     else
@@ -71,15 +82,9 @@ end
 
 function onresponse{T, F}(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, info::SubscriptionInfo{T, F})
     channel = unsafe_wrap(String, channelbytes)
-    msgdata = IOBuffer(unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size))
-    @show info
-    signature = read(msgdata, 8)
-    if signature != fingerprint(T)
-        warn("LCM Fingerprint for message type $T did not match. Expected: $(fingerprint(T)), got: $(signature)")
-    else
-        msg = decode(msgdata, info.msgtype)
-        info.handler(channel, msg)
-    end
+    msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
+    msg = decode(msgdata, info.msgtype)
+    info.handler(channel, msg)
     return nothing::Void
 end
 
@@ -117,5 +122,6 @@ function handle(lcm::LCM, timeout::Period)
         return false
     end
 end
+
 
 end
