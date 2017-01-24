@@ -1,5 +1,6 @@
 using Base.Test
 using LCMCore
+using Base.Dates: Second
 import LCMCore: encode, decode
 
 let
@@ -70,6 +71,6 @@ let
     end
     subscribe(lcm, channel, check_data, MyMessage)
     publish(lcm, channel, msg)
-    handle(lcm)
+    handle(lcm, Second(1))
     @test did_check
 end
