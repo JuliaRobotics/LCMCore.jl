@@ -73,4 +73,9 @@ let
     publish(lcm, channel, msg)
     handle(lcm, Second(1))
     @test did_check
+
+    # Test handle() with a timeout when there's no message available
+    did_check = false
+    handle(lcm, Second(1))
+    @test did_check == false
 end
