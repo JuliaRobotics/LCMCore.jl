@@ -13,9 +13,6 @@ notifications:
 branches:
   only:
     - master
-matrix:
-  allow_failures:
-    - julia: nightly
 
 after_success:
   - julia -e 'cd(Pkg.dir("LCMCore")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
