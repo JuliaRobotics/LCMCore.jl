@@ -4,8 +4,7 @@ module LCMCore
 
 depsjl = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")
 if !isfile(depsjl)
-    error("LCMCore not properly ",
-	    "installed. Please run\nPkg.build(\"LCMCore\")")
+    error("LCMCore not properly installed. Please run\nPkg.build(\"LCMCore\")")
 else
     include(depsjl)
 end
