@@ -10,7 +10,7 @@ else
     include(depsjl)
 end
 
-import Base: unsafe_convert, read, write, close
+import Base: unsafe_convert, close
 using Base.Dates: Period, Millisecond
 export LCM,
        publish,
@@ -22,6 +22,10 @@ export LCM,
        handle
 
 
+# These are the methods that custom LCM types need to overload.
+# The expected signatures are:
+# encode(::MyMessageType)::Vector{UInt8}
+# decode(::Vector{UInt8}, ::Type{MyMessageType})::MyMessageType
 function encode end
 function decode end
 
