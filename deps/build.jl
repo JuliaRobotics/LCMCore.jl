@@ -80,4 +80,9 @@ provides(BuildProcess,
 const lcm_prefix = "$prefix"
 """)
 
+# Hack inspired by https://github.com/JuliaLang/BinDeps.jl/issues/55
+@windows_only push!(BinDeps.defaults, BuildProcess)
+
 @BinDeps.install Dict(:lcm => :liblcm)
+
+@windows_only pop!(BinDeps.defaults)
