@@ -42,7 +42,7 @@ lcm_cmake_arguments = String[]
 elseif is_windows()
     using WinRPM
     push!(lcm_cmake_arguments,
-        "-DCMAKE_PREFIX_PATH=$(joinpath(Pkg.dir("WinRPM"), "deps", "usr"))")
+        "-DCMAKE_PREFIX_PATH=$(joinpath(Pkg.dir("WinRPM"), "deps", "usr", "$(Sys.ARCH)-w64-mingw32", "sys-root", "mingw"))")
     provides(WinRPM.RPM, "libglib-2_0-0", [glib], os=:Windows)
 end
 
