@@ -41,8 +41,13 @@ lcm_cmake_arguments = String[]
         "-DCMAKE_PREFIX_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr"))")
 elseif is_windows()
     using WinRPM
+    win_prefix = joinpath(Pkg.dir("WinRPM"), "deps", "usr",
+                        "$(Sys.ARCH)-w64-mingw32", 
+                        "sys-root", 
+                        "mingw")
     push!(lcm_cmake_arguments,
-        "-DCMAKE_PREFIX_PATH=$(joinpath(Pkg.dir("WinRPM"), "deps", "usr"))")
+        "-DCMAKE_PREFIX_PATH=$(win_prefix)")
+        "-DCMAKE_LIBRARY_PATH=$(joinpath(win_prefix, "bin"))")
     provides(WinRPM.RPM, "libglib-2_0-0", [glib], os=:Windows)
 end
 
@@ -69,7 +74,7 @@ provides(BuildProcess,
     (@build_steps begin
         () -> begin
             path = joinpath(Pkg.dir("WinRPM"), "deps", "usr")
-            for element in ["$(Sys.ARCH)-w64-mingw32", "sys-root", "mingw", "bin"]
+            for element in ["$(Sys.ARCH)-w64-mingw32", "sys-root", "mingw", "share"]
                 path = joinpath(path, element)
                 @show path
                 @show readdir(path)
