@@ -49,7 +49,7 @@ elseif is_windows()
         "-DCMAKE_PREFIX_PATH=$(win_prefix)")
     push!(lcm_cmake_arguments,
         "-DCMAKE_LIBRARY_PATH=$(joinpath(win_prefix, "bin"))")
-    provides(WinRPM.RPM, "libglib-2_0-0", [glib], os=:Windows)
+    provides(WinRPM.RPM, "glib-dev", [glib], os=:Windows)
 end
 
 provides(Yum,
@@ -75,7 +75,7 @@ provides(BuildProcess,
     (@build_steps begin
         () -> begin
             path = joinpath(Pkg.dir("WinRPM"), "deps", "usr")
-            for element in ["$(Sys.ARCH)-w64-mingw32", "sys-root", "mingw", "share"]
+            for element in ["$(Sys.ARCH)-w64-mingw32", "sys-root", "mingw", "bin"]
                 path = joinpath(path, element)
                 @show path
                 @show readdir(path)
