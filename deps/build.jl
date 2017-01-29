@@ -38,11 +38,11 @@ lcm_cmake_arguments = String[]
     using Homebrew
     provides(Homebrew.HB, "glib", glib, os=:Darwin)
     push!(lcm_cmake_arguments,
-        "-DCMAKE_LIBRARY_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "lib"))")
-    push!(lcm_cmake_arguments,
-        "-DCMAKE_INCLUDE_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "include"))")
+        "-DCMAKE_PREFIX_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr"))")
 elseif is_windows()
     using WinRPM
+    push!(lcm_cmake_arguments,
+        "-DCMAKE_PREFIX_PATH=$(joinpath(Pkg.dir("WinRPM"), "deps", "usr"))")
     provides(WinRPM.RPM, "libglib-2_0-0", [glib], os=:Windows)
 end
 
