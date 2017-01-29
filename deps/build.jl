@@ -81,8 +81,12 @@ const lcm_prefix = "$prefix"
 """)
 
 # Hack inspired by https://github.com/JuliaLang/BinDeps.jl/issues/55
-@windows_only push!(BinDeps.defaults, BuildProcess)
+@static if is_windows() 
+    push!(BinDeps.defaults, BuildProcess)
+end
 
 @BinDeps.install Dict(:lcm => :liblcm)
 
-@windows_only pop!(BinDeps.defaults)
+@static if is_windows()
+    pop!(BinDeps.defaults)
+end
