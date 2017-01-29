@@ -47,6 +47,7 @@ elseif is_windows()
                         "mingw")
     push!(lcm_cmake_arguments,
         "-DCMAKE_PREFIX_PATH=$(win_prefix)")
+    push!(lcm_cmake_arguments,
         "-DCMAKE_LIBRARY_PATH=$(joinpath(win_prefix, "bin"))")
     provides(WinRPM.RPM, "libglib-2_0-0", [glib], os=:Windows)
 end
