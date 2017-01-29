@@ -43,7 +43,7 @@ lcm_cmake_arguments = String[]
         "-DCMAKE_INCLUDE_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "include"))")
 elseif is_windows()
     using WinRPM
-    provides(WinRPM.RPM, "libglib-2.0", [glib], os=:Windows)
+    provides(WinRPM.RPM, "libglib-2_0-0", [glib], os=:Windows)
 end
 
 provides(Yum,
