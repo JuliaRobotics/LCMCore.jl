@@ -11,8 +11,9 @@ LCMCore.jl provides a low-level Julia interface to the [Lightweight Communicatio
 
 From Julia, you can do:
 
-    julia> Pkg.clone("https://github.com/rdeits/LCMCore.jl.git")
-    julia> Pkg.build("LCMCore")
+```julia
+Pkg.add("LCMCore")
+```
 
 If you have LCM installed systemwide, LCMCore.jl will try to use that installation. Otherwise, it will download and build a new copy of the LCM library for you.
 
