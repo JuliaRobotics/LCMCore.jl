@@ -67,7 +67,14 @@ lcm_cmake_command = `$lcm_cmake_command $lcm_srcdir`
 
 provides(BuildProcess,
     (@build_steps begin
-        () -> @show readdir(joinpath(Pkg.dir("WinRPM"), "deps", "usr"))
+        () -> begin
+            path = joinpath(Pkg.dir("WinRPM"), "deps", "usr")
+            for element in ["$(Sys.ARCH)-w64-mingw32", "sys-root", "mingw", "bin"]
+                path = joinpath(path, element)
+                @show path
+                @show readdir(path)
+            end
+        end
         GetSources(lcm)
         CreateDirectory(lcm_builddir)
         @build_steps begin
