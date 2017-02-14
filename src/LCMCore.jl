@@ -18,7 +18,8 @@ export LCM,
        encode,
        decode,
        subscribe,
-       handle
+       handle,
+       set_queue_capacity!
 
 
 # These are the methods that custom LCM types need to overload.
@@ -114,6 +115,12 @@ end
 
 function subscribe(lcm::LCM, channel::String, handler, msgtype=Void)
     subscribe(lcm, channel, SubscriptionOptions(msgtype, handler))
+end
+
+function set_queue_capacity!(sub::Subscription, capacity::Integer)
+    @assert capacity >= 0
+    status = ccall((:lcm_subscription_set_queue_capacity, liblcm), Cint, (Ptr{Void}, Cint), sub.csubscription, capacity)
+    return status == 0
 end
 
 lcm_handle(lcm::LCM) = ccall((:lcm_handle, liblcm), Cint, (Ptr{Void},), lcm)
