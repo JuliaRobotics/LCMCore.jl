@@ -3,21 +3,21 @@ using LCMCore
 using Base.Dates: Second
 import LCMCore: encode, decode
 
-let
+@testset "close multiple times" begin
     lcm = LCM()
     close(lcm)
     close(lcm)
     close(lcm)
 end
 
-let
+@testset "publish raw data" begin
     LCM() do lcm
         publish(lcm, "CHANNEL_0", UInt8[1,2,3,4])
     end
 end
 
 
-let
+@testset "publish and subscribe" begin
     lcm = LCM()
 
     did_check = false
@@ -34,7 +34,7 @@ let
     @test did_check
 end
 
-let
+@testset "async publish and subscribe" begin
     lcm = LCM()
 
     data = UInt8[1,2,3,4,5]
@@ -66,7 +66,7 @@ function decode(data, msg::Type{MyMessage})
     MyMessage(ntoh(read(buf, Int32)), ntoh(read(buf, Float64)))
 end
 
-let
+@testset "encode and decode" begin
     lcm = LCM()
     msg = MyMessage(23, 1.234)
     did_check = false
@@ -85,4 +85,55 @@ let
     did_check = false
     handle(lcm, Second(1))
     @test did_check == false
+end
+
+@testset "queue capacity 1" begin
+    lcm = LCM()
+
+    did_check = false
+    channel = "CHANNEL_1"
+    function check_data(c, d)
+        @show d
+        did_check = true
+    end
+    sub = subscribe(lcm, channel, check_data)
+    @test set_queue_capacity!(sub, 1)
+    fd = filedescriptor(lcm)
+    publish(lcm, channel, UInt8[1,2,3])
+    publish(lcm, channel, UInt8[1,2,3,4])
+    LCMCore.lcm_handle(lcm)
+    @test did_check
+
+    event = poll_fd(fd, 1; readable=true)
+    # We published twice and handled once. Because the queue capacity is only
+    # 1, there should not be another message available to read.
+    # However, queue size is actually off by one in LCM:
+    # https://github.com/lcm-proj/lcm/issues/167
+    # so this test won't pass.
+    # @test !event.readable
+end
+
+@testset "queue capacity 2" begin
+    lcm = LCM()
+
+    did_check = false
+    channel = "CHANNEL_1"
+    function check_data(c, d)
+        did_check = true
+    end
+    sub = subscribe(lcm, channel, check_data)
+    set_queue_capacity!(sub, 2)
+    fd = filedescriptor(lcm)
+    publish(lcm, channel, UInt8[1,2,3,4,5])
+    publish(lcm, channel, UInt8[1,2,3,4,5])
+    LCMCore.lcm_handle(lcm)
+    @test did_check
+
+    # We published twice and handled once. The queue capacity is 2, so
+    # there should be another message available to read.
+    # This will pass despite https://github.com/lcm-proj/lcm/issues/167
+    # because that bug causes the queue size to actually be 3 instead of 2.
+    # In either case, fd will be readable. 
+    event = poll_fd(fd, 1; readable=true)
+    @test event.readable
 end

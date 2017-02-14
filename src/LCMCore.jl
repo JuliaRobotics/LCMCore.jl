@@ -18,7 +18,8 @@ export LCM,
        encode,
        decode,
        subscribe,
-       handle
+       handle,
+       set_queue_capacity!
 
 
 # These are the methods that custom LCM types need to overload.
@@ -89,7 +90,7 @@ immutable RecvBuf
 end
 
 function onresponse{T, F}(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, opts::SubscriptionOptions{T, F})
-    channel = unsafe_wrap(String, channelbytes)
+    channel = unsafe_string(channelbytes)
     msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
     if isa(T, Type{Void})
         opts.handler(channel, msgdata)
@@ -116,6 +117,12 @@ function subscribe(lcm::LCM, channel::String, handler, msgtype=Void)
     subscribe(lcm, channel, SubscriptionOptions(msgtype, handler))
 end
 
+function set_queue_capacity!(sub::Subscription, capacity::Integer)
+    @assert capacity >= 0
+    status = ccall((:lcm_subscription_set_queue_capacity, liblcm), Cint, (Ptr{Void}, Cint), sub.csubscription, capacity)
+    return status == 0
+end
+
 lcm_handle(lcm::LCM) = ccall((:lcm_handle, liblcm), Cint, (Ptr{Void},), lcm)
 
 function handle(lcm::LCM)
@@ -130,7 +137,7 @@ function handle(lcm::LCM)
 end
 
 function handle(lcm::LCM, timeout::Period)
-    timeout_ms = convert(Int, convert(Millisecond, timeout))
+    timeout_ms = Dates.value(convert(Millisecond, timeout))
     fd = filedescriptor(lcm)
     event = poll_fd(fd, timeout_ms / 1000; readable=true)
     if event.readable
