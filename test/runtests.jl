@@ -1,6 +1,6 @@
 using Base.Test
 using LCMCore
-using Base.Dates: Second
+using Base.Dates: Second, Millisecond
 import LCMCore: encode, decode
 
 @testset "close multiple times" begin
@@ -15,7 +15,6 @@ end
         publish(lcm, "CHANNEL_0", UInt8[1,2,3,4])
     end
 end
-
 
 @testset "publish and subscribe" begin
     lcm = LCM()
@@ -156,6 +155,38 @@ end
     publish(lcm, channel, UInt8[1,2,3])
     handle(lcm)
 
+    @test !did_callback1
+    @test did_callback2
+end
+
+@testset "UDP ports" begin
+    lcm1 = LCM("udpm://239.255.76.67:7667")
+    lcm2 = LCM("udpm://239.255.76.67:7668")
+
+    channel = "FOO"
+    did_callback1 = false
+    function callback1(channel, data)
+        @test data == UInt8[1, 2, 3]
+        did_callback1 = true
+    end
+    did_callback2 = false
+    function callback2(channel, data)
+        @test data == UInt8[1, 2, 3, 4]
+        did_callback2 = true
+    end
+    subscribe(lcm1, channel, callback1)
+    subscribe(lcm2, channel, callback2)
+    publish(lcm1, channel, UInt8[1,2,3])
+    handle(lcm1, Millisecond(100))
+    handle(lcm2, Millisecond(100))
+    @test did_callback1
+    @test !did_callback2
+
+    did_callback1 = false
+    did_callback2 = false
+    publish(lcm2, channel, UInt8[1,2,3,4])
+    handle(lcm1, Millisecond(100))
+    handle(lcm2, Millisecond(100))
     @test !did_callback1
     @test did_callback2
 end
