@@ -92,7 +92,6 @@ end
     did_check = false
     channel = "CHANNEL_1"
     function check_data(c, d)
-        @show d
         did_check = true
     end
     sub = subscribe(lcm, channel, check_data)
