@@ -18,8 +18,9 @@ export LCM,
        encode,
        decode,
        subscribe,
+       unsubscribe,
        handle,
-       set_queue_capacity!
+       set_queue_capacity
 
 
 # These are the methods that custom LCM types need to overload.
@@ -38,6 +39,7 @@ immutable Subscription{T <: SubscriptionOptions}
     options::T
     csubscription::Ptr{Void}
 end
+unsafe_convert(::Type{Ptr{Void}}, sub::Subscription) = sub.csubscription
 
 type LCM
     pointer::Ptr{Void}
@@ -47,12 +49,12 @@ type LCM
     LCM() = begin
         pointer = ccall((:lcm_create, liblcm), Ptr{Void}, (Ptr{UInt8},), "")
         filedescriptor = RawFD(ccall((:lcm_get_fileno, liblcm), Cint, (Ptr{Void},), pointer))
-        lc = new(pointer, filedescriptor, Subscription[])
-        finalizer(lc, close)
-        lc
+        lcm = new(pointer, filedescriptor, Subscription[])
+        finalizer(lcm, close)
+        lcm
     end
 end
-unsafe_convert(::Type{Ptr{Void}}, lc::LCM) = lc.pointer
+unsafe_convert(::Type{Ptr{Void}}, lcm::LCM) = lcm.pointer
 
 function close(lcm::LCM)
     if lcm.pointer != C_NULL
@@ -117,9 +119,14 @@ function subscribe(lcm::LCM, channel::String, handler, msgtype=Void)
     subscribe(lcm, channel, SubscriptionOptions(msgtype, handler))
 end
 
-function set_queue_capacity!(sub::Subscription, capacity::Integer)
+function unsubscribe(lcm::LCM, subscription::Subscription)
+    result = ccall((:lcm_unsubscribe, liblcm), Cint, (Ptr{Void}, Ptr{Void}), lcm, subscription)
+    result == 0
+end
+
+function set_queue_capacity(sub::Subscription, capacity::Integer)
     @assert capacity >= 0
-    status = ccall((:lcm_subscription_set_queue_capacity, liblcm), Cint, (Ptr{Void}, Cint), sub.csubscription, capacity)
+    status = ccall((:lcm_subscription_set_queue_capacity, liblcm), Cint, (Ptr{Void}, Cint), sub, capacity)
     return status == 0
 end
 
@@ -147,6 +154,5 @@ function handle(lcm::LCM, timeout::Period)
         return false
     end
 end
-
 
 end
