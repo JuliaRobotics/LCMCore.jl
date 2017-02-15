@@ -97,7 +97,7 @@ end
         did_check = true
     end
     sub = subscribe(lcm, channel, check_data)
-    @test set_queue_capacity!(sub, 1)
+    @test set_queue_capacity(sub, 1)
     fd = filedescriptor(lcm)
     publish(lcm, channel, UInt8[1,2,3])
     publish(lcm, channel, UInt8[1,2,3,4])
@@ -122,7 +122,7 @@ end
         did_check = true
     end
     sub = subscribe(lcm, channel, check_data)
-    set_queue_capacity!(sub, 2)
+    set_queue_capacity(sub, 2)
     fd = filedescriptor(lcm)
     publish(lcm, channel, UInt8[1,2,3,4,5])
     publish(lcm, channel, UInt8[1,2,3,4,5])
