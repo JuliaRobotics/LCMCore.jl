@@ -38,10 +38,18 @@ lcm_cmake_arguments = String[]
     using Homebrew
     provides(Homebrew.HB, "glib", glib, os=:Darwin)
     push!(lcm_cmake_arguments,
-        "-DCMAKE_LIBRARY_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "lib"))")
+        "-DCMAKE_PREFIX_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr"))")
+elseif is_windows()
+    using WinRPM
+    win_prefix = joinpath(Pkg.dir("WinRPM"), "deps", "usr",
+                        "$(Sys.ARCH)-w64-mingw32", 
+                        "sys-root", 
+                        "mingw")
     push!(lcm_cmake_arguments,
-        "-DCMAKE_INCLUDE_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "include"))")
-
+        "-DCMAKE_PREFIX_PATH=$(win_prefix)")
+    push!(lcm_cmake_arguments,
+        "-DCMAKE_LIBRARY_PATH=$(joinpath(win_prefix, "bin"))")
+    provides(WinRPM.RPM, "glib-dev", [glib], os=:Windows)
 end
 
 provides(Yum,
@@ -65,6 +73,14 @@ lcm_cmake_command = `$lcm_cmake_command $lcm_srcdir`
 
 provides(BuildProcess,
     (@build_steps begin
+        () -> begin
+            path = joinpath(Pkg.dir("WinRPM"), "deps", "usr")
+            for element in ["$(Sys.ARCH)-w64-mingw32", "sys-root", "mingw", "bin"]
+                path = joinpath(path, element)
+                @show path
+                @show readdir(path)
+            end
+        end
         GetSources(lcm)
         CreateDirectory(lcm_builddir)
         @build_steps begin
@@ -78,4 +94,13 @@ provides(BuildProcess,
 const lcm_prefix = "$prefix"
 """)
 
+# Hack inspired by https://github.com/JuliaLang/BinDeps.jl/issues/55
+@static if is_windows() 
+    push!(BinDeps.defaults, BuildProcess)
+end
+
 @BinDeps.install Dict(:lcm => :liblcm)
+
+@static if is_windows()
+    pop!(BinDeps.defaults)
+end
