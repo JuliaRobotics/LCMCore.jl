@@ -20,7 +20,7 @@ export LCM,
        subscribe,
        unsubscribe,
        handle,
-       set_queue_capacity
+       set_queue_capacity!
 
 
 # These are the methods that custom LCM types need to overload.
@@ -125,7 +125,7 @@ function unsubscribe(lcm::LCM, subscription::Subscription)
     result == 0
 end
 
-function set_queue_capacity(sub::Subscription, capacity::Integer)
+function set_queue_capacity!(sub::Subscription, capacity::Integer)
     @assert capacity >= 0
     status = ccall((:lcm_subscription_set_queue_capacity, liblcm), Cint, (Ptr{Void}, Cint), sub, capacity)
     return status == 0
