@@ -137,3 +137,25 @@ end
     event = poll_fd(fd, 1; readable=true)
     @test event.readable
 end
+
+@testset "unsubscribe" begin
+    lcm = LCM()
+
+    channel = "FOO"
+    did_callback1 = false
+    function callback1(channel, data)
+        did_callback1 = true
+    end
+    did_callback2 = false
+    function callback2(channel, data)
+        did_callback2 = true
+    end
+    sub1 = subscribe(lcm, channel, callback1)
+    unsubscribe(lcm, sub1)
+    sub2 = subscribe(lcm, channel, callback2)
+    publish(lcm, channel, UInt8[1,2,3])
+    handle(lcm)
+
+    @test !did_callback1
+    @test did_callback2
+end
