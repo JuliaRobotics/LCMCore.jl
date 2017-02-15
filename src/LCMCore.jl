@@ -43,13 +43,14 @@ unsafe_convert(::Type{Ptr{Void}}, sub::Subscription) = sub.csubscription
 
 type LCM
     pointer::Ptr{Void}
+    provider::String
     filedescriptor::RawFD
     subscriptions::Vector{Subscription}
 
-    LCM() = begin
-        pointer = ccall((:lcm_create, liblcm), Ptr{Void}, (Ptr{UInt8},), "")
+    LCM(provider="") = begin
+        pointer = ccall((:lcm_create, liblcm), Ptr{Void}, (Ptr{UInt8},), provider)
         filedescriptor = RawFD(ccall((:lcm_get_fileno, liblcm), Cint, (Ptr{Void},), pointer))
-        lcm = new(pointer, filedescriptor, Subscription[])
+        lcm = new(pointer, provider, filedescriptor, Subscription[])
         finalizer(lcm, close)
         lcm
     end
