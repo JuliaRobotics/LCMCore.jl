@@ -56,38 +56,10 @@ provides(Sources,
     lcm,
     unpacked_dir=lcm_folder)
 
-# lcm_builddir = joinpath(BinDeps.depsdir(lcm), "builds", "lcm")
-# lcm_srcdir = joinpath(BinDeps.depsdir(lcm), "src", lcm_folder)
-# lcm_cmake_command = `cmake -DCMAKE_INSTALL_PREFIX=$(prefix)`
-# for arg in lcm_cmake_arguments
-#     lcm_cmake_command = `$lcm_cmake_command $arg`
-# end
-# lcm_cmake_command = `$lcm_cmake_command $lcm_srcdir`
-
 provides(BuildProcess, CMakeProcess(cmake_args=lcm_cmake_arguments),
          lcm,
          onload="""
 const lcm_prefix = "$prefix"
 """)       
-
-# provides(BuildProcess,
-#     (@build_steps begin
-#         GetSources(lcm)
-#         CMakeBuild(src=lcm_srcdir,
-#                    builddir=lcm_builddir, 
-#                    prefix=prefix,
-#                    cmake_args=lcm_cmake_arguments,
-#                    libtargets=[joinpath(prefix, "lib", "liblcm.dylib")])
-#         # CreateDirectory(lcm_builddir)
-#         # @build_steps begin
-#         #     ChangeDirectory(lcm_builddir)
-#         #     lcm_cmake_command
-#         #     `cmake --build . --target install`
-#         # end
-#     end),
-#     lcm,
-#     onload="""
-# const lcm_prefix = "$prefix"
-# """)
 
 @BinDeps.install Dict(:lcm => :liblcm)
