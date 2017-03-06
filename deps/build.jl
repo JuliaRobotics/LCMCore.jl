@@ -60,6 +60,6 @@ provides(BuildProcess, CMakeProcess(cmake_args=lcm_cmake_arguments),
          lcm,
          onload="""
 const lcm_prefix = "$prefix"
-""")       
+""")
 
 @BinDeps.install Dict(:lcm => :liblcm)
