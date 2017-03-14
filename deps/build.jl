@@ -11,8 +11,8 @@ function cflags_validator(pkg_names...)
                 return true
             catch ErrorException
             end
-            false
         end
+        false
     end
 end
 
