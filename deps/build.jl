@@ -3,20 +3,22 @@ using CMakeWrapper
 
 @BinDeps.setup
 
-function cflags_validator(pkg_name)
+function cflags_validator(pkg_names...)
     return (name, handle) -> begin
-        try
-            run(`pkg-config --cflags $(pkg_name)`)
-            return true
-        catch ErrorException
-            return false
+        for pkg_name in pkg_names
+            try
+                run(`pkg-config --cflags $(pkg_name)`)
+                return true
+            catch ErrorException
+            end
         end
+        false
     end
 end
 
 @static if is_linux()
     deps = [
-        python = library_dependency("python", aliases=["libpython2.7.so", "libpython3.2.so", "libpython3.3.so", "libpython3.4.so", "libpython3.5.so", "libpython3.6.so", "libpython3.7.so"], validate=cflags_validator("python"))
+        python = library_dependency("python", aliases=["libpython2.7.so", "libpython3.2.so", "libpython3.3.so", "libpython3.4.so", "libpython3.5.so", "libpython3.6.so", "libpython3.7.so", "libpython3.8.so"], validate=cflags_validator("python", "python2", "python3"))
         glib = library_dependency("glib", aliases=["libglib-2.0-0", "libglib-2.0", "libglib-2.0.so.0"], depends=[python], validate=cflags_validator("glib-2.0"))
         lcm = library_dependency("lcm", aliases=["liblcm", "liblcm.1"], depends=[glib])
 
