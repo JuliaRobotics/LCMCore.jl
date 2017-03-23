@@ -2,39 +2,39 @@
 # https://github.com/Netflix/SimianArmy/wiki/Chaos-Monkey
 
 addprocs(1)
+
 @everywhere begin
-using ProtoBuf
 using LCMCore
+using ProtoBuf
 using JSON
 
 import LCMCore: encode, decode
 
 
+typealias MDD Dict{ASCIIString,Vector{UInt8}}
+
 type Nested
   more::Float64
+  data::Vector{UInt8}
+  Nested() = new()
+  Nested(a,b) = new(a,b)
 end
 
-abstract DoubleWammy{T}
-
-type MyMessageType{T} <: DoubleWammy{T}  # a Julia composite type
+type MyMessageType{T}  # a Julia composite type
  intval::Int                             # probably generated from protoc
  strval::ASCIIString
  len::Int64
- data::Vector{UInt8}
- # ndd::Nested
+ data::Vector{Float64}
+ ndd::Nested
  dd::T
  MyMessageType() = new()
- MyMessageType(i,s,l,d,o) = new(i,s,l,d,o)
+ MyMessageType{T}(i,s,l,d,nd,o::T) = new(i,s,l,d,nd,o)
 end
-# Dict{ASCIIString,Vector{Float64}}
-
-
-# MyMessageType(10, "hello world")
 
 function encode{T}(msg::MyMessageType{T})
   iob = PipeBuffer()
   js = JSON.json(msg.dd)
-  writeproto(iob, MyMessageType{ASCIIString}(msg.intval, msg.strval, msg.len, msg.data, js)  )
+  writeproto(iob, MyMessageType{ASCIIString}(msg.intval, msg.strval, msg.len, msg.data, msg.ndd, js)  )
   enc = takebuf_array(iob)
   return enc
 end
@@ -43,57 +43,85 @@ function decode{T <: Dict}(data::Vector{UInt8}, ::Type{MyMessageType{T}})
   iob = PipeBuffer(data)
   rmsg = readproto(iob, MyMessageType{ASCIIString}())  # read it back into another instance
   js = JSON.parse(rmsg.dd)
-  MyMessageType{T}(rmsg.intval, rmsg.strval, rmsg.len, rmsg.data, js)
+  MyMessageType{T}(rmsg.intval, rmsg.strval, rmsg.len, rmsg.data, rmsg.ndd, js)
 end
 
 
 function typed_callback{T}(channel::AbstractString, msg::MyMessageType{T})
-    @show channel
-    @show typeof(msg)
+  @show channel
+  @show typeof(msg)
+  nothing
 end
 
 
-typealias MDD Dict{ASCIIString,Vector{Float64}}
-end
-
-@everywhere function listento(MYCHAN)
+function listento(MYCHAN, flag::Vector{Bool})
   lc = LCM()
   subscribe(lc, MYCHAN, typed_callback, MyMessageType{MDD})
 
-  flag = Bool[true]
-  @async begin
   while flag[1]
-      @time handle(lc)
-  end
+    @time handle(lc)
   end
 end
 
+end #@everywhere
 
-r = @spawn listento("MY_CHANNEL")
 
-lc = LCM()
 
-for i in 1:1000
-  dd = MDD("$i" => randn(100))
-  mymsg = MyMessageType{MDD}(i,"hello world",1000000,Array(UInt8,1000000),dd)
-  # nn = Nested(100.0-i, Dict{AbstractString,Vector{Float64}}("$i" => randn(10)))
-  # mymsg = MyMessageType(i,"hello world",100,Array(UInt8,100),nn)
-  @time publish(lc, "MY_CHANNEL", mymsg)
-  sleep(0.0001)
+function testencdec()
+  i = 10
+  dd = MDD("$i" => Array(UInt8,100))
+  nn = Nested(100.0-i, Array(UInt8,1000000))
+  mymsg = MyMessageType{MDD}(i,"hello world",10,randn(100),nn,dd)
+  enc = encode(mymsg)
+  md = decode(enc, MyMessageType{MDD})
+  norm(mymsg.data-md.data) < 1e-10
 end
 
 
-flag[1] = false
+testencdec()
 
 
 
-# Some testing
-i = 10
-dd = MDD("$i" => randn(10))
-# nn = Nested(100.0-i, dd)
-mymsg = MyMessageType{MDD}(i,"hello world",100,Array(UInt8,100),dd)
+function publishmanymsgs(channel::AbstractString; iter::Int=100)
+  lc = LCM()
+
+  for i in 1:iter
+    dd = MDD("$i" => Array(UInt8,10))
+    nn = Nested(100.0-i, Array(UInt8,1000000))
+    mymsg = MyMessageType{MDD}(i,"hello world",7,randn(100),nn,dd)
+    @time publish(lc, channel, mymsg)
+    sleep(0.0001)
+  end
+  nothing
+end
 
 
-enc = encode(mymsg)
+channel = "MY_CHANNEL"
 
-md = decode(enc, MyMessageType{MDD})
+
+# Run listener on separate process
+loopflag = Bool[true]
+r = @spawn listento(channel, loopflag) # or @spawn for co-routine using loopflag
+
+# sender
+publishmanymsgs(channel, iter=999)
+
+# to stop while loop
+loopflag[1] = false
+publishmanymsgs(channel, iter=1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
