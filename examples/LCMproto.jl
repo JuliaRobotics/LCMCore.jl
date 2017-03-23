@@ -39,7 +39,7 @@ function encode{T}(msg::MyMessageType{T})
   return enc
 end
 
-function decode{T <: Dict}(data::Vector{UInt8}, ::Type{MyMessageType{T}})
+function decode{T}(data::Vector{UInt8}, ::Type{MyMessageType{T}})
   iob = PipeBuffer(data)
   rmsg = readproto(iob, MyMessageType{ASCIIString}())  # read it back into another instance
   js = JSON.parse(rmsg.dd)
