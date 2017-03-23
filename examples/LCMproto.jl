@@ -63,10 +63,6 @@ function listento(MYCHAN, flag::Vector{Bool})
   end
 end
 
-end #@everywhere
-
-
-
 function testencdec()
   i = 10
   dd = MDD("$i" => Array(UInt8,100))
@@ -77,8 +73,11 @@ function testencdec()
   norm(mymsg.data-md.data) < 1e-10
 end
 
+end #@everywhere
 
-testencdec()
+# compile code everywhere
+@everywhere testencdec()
+
 
 
 
