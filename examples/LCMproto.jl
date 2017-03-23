@@ -21,7 +21,7 @@ type Nested
 end
 
 type MyMessageType{T}  # a Julia composite type
- intval::Int                             # probably generated from protoc
+ intval::Int           # probably generated from protoc
  strval::ASCIIString
  len::Int64
  data::Vector{Float64}
@@ -30,6 +30,20 @@ type MyMessageType{T}  # a Julia composite type
  MyMessageType() = new()
  MyMessageType{T}(i,s,l,d,nd,o::T) = new(i,s,l,d,nd,o)
 end
+
+# Record a log and now try subscribing to that log with a modified type
+# type MyMessageType{T}  <: ForwBackCompatability{T}  # a Julia composite type
+#  intval::Int                                        # probably generated from protoc
+#  strval::ASCIIString
+#  len::Int64
+#  data::Vector{Float64}
+#  ndd::Nested
+#  dd::T
+#  oops::Vector{Float64}
+#  MyMessageType() = new()
+#  MyMessageType{T}(i,s,l,d,nd,o::T,
+#                       b::Vector{Float64}=Float64[] ) = new(i,s,l,d,nd,o,b)
+# end
 
 function encode{T}(msg::MyMessageType{T})
   iob = PipeBuffer()
