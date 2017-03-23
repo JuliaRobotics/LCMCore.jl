@@ -101,7 +101,7 @@ channel = "MY_CHANNEL"
 
 # Run listener on separate process
 loopflag = Bool[true]
-r = @spawn listento(channel, loopflag) # or @spawn for co-routine using loopflag
+r = @spawn listento(channel, loopflag) # or @async for co-routine using loopflag
 
 # sender
 publishmanymsgs(channel, iter=999)
