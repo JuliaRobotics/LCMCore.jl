@@ -41,6 +41,67 @@ immutable Subscription{T <: SubscriptionOptions}
 end
 unsafe_convert(::Type{Ptr{Void}}, sub::Subscription) = sub.csubscription
 
+# Troubleshooting adapted from:
+# https://github.com/RobotLocomotion/drake/blob/f72bb3f465f69f25459a7a65c57b45c795b5e31d/drake/matlab/util/setup_loopback_multicast.sh
+# https://github.com/RobotLocomotion/drake/blob/f72bb3f465f69f25459a7a65c57b45c795b5e31d/drake/matlab/util/check_multicast_is_loopback.sh
+function troubleshoot()
+    lo = loopback_interface()
+    if check_loopback_multicast(lo)
+        check_multicast_routing(lo)
+    end
+    error("Failed to create LCM instance.")
+end
+
+loopback_interface() = chomp(readstring(pipeline(`ifconfig`, `grep -m 1 -i loopback`, `cut -d : -f1`)))
+
+function loopback_multicast_setup_advice(lo::String)
+    @static if is_apple()
+        """Consider running:
+        route add -net 224.0.0.0 -netmask 240.0.0.0 -interface $lo"""
+    elseif is_linux()
+        """Consider running:
+        ifconfig $lo multicast
+        route add -net 224.0.0.0 netmask 240.0.0.0 dev lo"""
+    else
+        "OS-specific instructions not available."
+    end
+end
+
+function check_loopback_multicast(lo::String)
+    pass = if parse(readstring(pipeline(`ifconfig $lo`, `grep -c -i multicast`))) != 0
+        msg = """Loopback interface $lo is not set to multicast.
+        The most probable cause for this is that you are not connected to the internet.
+        $(loopback_multicast_setup_advice(lo))"""
+        warn(msg)
+        false
+    else
+        true
+    end
+    pass
+end
+
+function check_multicast_routing(lo::String)
+    routing_correct = @static if is_apple()
+        chomp(readstring(pipeline(`route get 224.0.0.0 -netmask 240.0.0.0`, `grep -m 1 -i interface`, `cut -f2 -d :`, `tr -d ' '`))) == lo
+    elseif is_linux()
+        chomp(readstring(pipeline(`ip route get 224.0.0.0`, `grep -m 1 -i dev`, `sed 's/.*dev\s*//g'`, `cut -d ' ' -f1`))) == lo
+    else
+        error()
+    end
+    pass = if !routing_correct
+        msg = """
+        Route to multicast channel does not run through the loopback interface.
+        The most probable cause for this is that you are not connected to the internet.
+        $(loopback_multicast_setup_advice(lo))
+        """
+        warn(msg)
+        false
+    else
+        true
+    end
+    pass
+end
+
 type LCM
     pointer::Ptr{Void}
     provider::String
@@ -49,6 +110,9 @@ type LCM
 
     LCM(provider="") = begin
         pointer = ccall((:lcm_create, liblcm), Ptr{Void}, (Ptr{UInt8},), provider)
+        if pointer == C_NULL
+            troubleshoot()
+        end
         filedescriptor = RawFD(ccall((:lcm_get_fileno, liblcm), Cint, (Ptr{Void},), pointer))
         lcm = new(pointer, provider, filedescriptor, Subscription[])
         finalizer(lcm, close)
