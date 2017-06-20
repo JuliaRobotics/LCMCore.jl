@@ -49,6 +49,7 @@ type LCM
 
     LCM(provider="") = begin
         pointer = ccall((:lcm_create, liblcm), Ptr{Void}, (Ptr{UInt8},), provider)
+        pointer == C_NULL && error("Failed to create LCM instance.")
         filedescriptor = RawFD(ccall((:lcm_get_fileno, liblcm), Cint, (Ptr{Void},), pointer))
         lcm = new(pointer, provider, filedescriptor, Subscription[])
         finalizer(lcm, close)
