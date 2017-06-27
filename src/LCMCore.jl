@@ -54,12 +54,12 @@ end
 
 loopback_interface() = chomp(readstring(pipeline(`ifconfig`, `grep -m 1 -i loopback`, `cut -d : -f1`)))
 
-function loopback_multicast_setup_advice(lo::String)
+function loopback_multicast_setup_advice(lo::AbstractString)
     @static if is_apple()
-        """Consider running:
+        """Consider running (as root):
         route add -net 224.0.0.0 -netmask 240.0.0.0 -interface $lo"""
     elseif is_linux()
-        """Consider running:
+        """Consider running (as root):
         ifconfig $lo multicast
         route add -net 224.0.0.0 netmask 240.0.0.0 dev lo"""
     else
@@ -67,10 +67,11 @@ function loopback_multicast_setup_advice(lo::String)
     end
 end
 
-function check_loopback_multicast(lo::String)
+function check_loopback_multicast(lo::AbstractString)
     pass = if parse(readstring(pipeline(`ifconfig $lo`, `grep -c -i multicast`))) != 0
         msg = """Loopback interface $lo is not set to multicast.
         The most probable cause for this is that you are not connected to the internet.
+        See https://lcm-proj.github.io/multicast_setup.html.
         $(loopback_multicast_setup_advice(lo))"""
         warn(msg)
         false
@@ -80,7 +81,7 @@ function check_loopback_multicast(lo::String)
     pass
 end
 
-function check_multicast_routing(lo::String)
+function check_multicast_routing(lo::AbstractString)
     routing_correct = @static if is_apple()
         chomp(readstring(pipeline(`route get 224.0.0.0 -netmask 240.0.0.0`, `grep -m 1 -i interface`, `cut -f2 -d :`, `tr -d ' '`))) == lo
     elseif is_linux()
