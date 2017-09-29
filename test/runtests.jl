@@ -55,7 +55,7 @@ end
     publish(lcm, channel, data)
 end
 
-type MyMessage
+mutable struct MyMessage
     field1::Int32
     field2::Float64
 end
