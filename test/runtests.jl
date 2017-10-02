@@ -10,6 +10,13 @@ import LCMCore: encode, decode
     close(lcm)
 end
 
+@testset "isgood" begin
+    lcm = LCM()
+    @test isgood(lcm)
+    close(lcm)
+    @test !isgood(lcm)
+end
+
 @testset "publish raw data" begin
     LCM() do lcm
         publish(lcm, "CHANNEL_0", UInt8[1,2,3,4])
@@ -132,7 +139,7 @@ end
     # there should be another message available to read.
     # This will pass despite https://github.com/lcm-proj/lcm/issues/167
     # because that bug causes the queue size to actually be 3 instead of 2.
-    # In either case, fd will be readable. 
+    # In either case, fd will be readable.
     event = poll_fd(fd, 1; readable=true)
     @test event.readable
 end
