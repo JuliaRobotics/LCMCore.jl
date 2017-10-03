@@ -180,7 +180,7 @@ function subscribe(lcm::LCM, channel::String, options::T) where T <: Subscriptio
         (Ptr{Void}, Ptr{UInt8}, Ptr{Void}, Ptr{Void}),
         lcm,
         channel,
-        cfunction(onresponse, Void, (Ref{RecvBuf}, Ptr{UInt8}, Ref{T})),
+        cfunction(onresponse, Void, Tuple{Ref{RecvBuf}, Ptr{UInt8}, Ref{T}}),
         Ref(options))
     sub = Subscription(options, csubscription)
     push!(lcm.subscriptions, sub)
