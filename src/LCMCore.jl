@@ -20,7 +20,8 @@ export LCM,
        subscribe,
        unsubscribe,
        handle,
-       set_queue_capacity
+       set_queue_capacity,
+       isgood
 
 
 # These are the methods that custom LCM types need to overload.
@@ -122,8 +123,10 @@ type LCM
 end
 unsafe_convert(::Type{Ptr{Void}}, lcm::LCM) = lcm.pointer
 
+isgood(lcm::LCM) = lcm.pointer != C_NULL
+
 function close(lcm::LCM)
-    if lcm.pointer != C_NULL
+    if isgood(lcm)
         ccall((:lcm_destroy, liblcm), Void, (Ptr{Void},), lcm)
         lcm.pointer = C_NULL
     end
