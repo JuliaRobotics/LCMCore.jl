@@ -2,6 +2,8 @@ __precompile__()
 
 module LCMCore
 
+using Compat
+
 depsjl = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")
 if !isfile(depsjl)
     error("LCMCore not properly installed. Please run\nPkg.build(\"LCMCore\")")
@@ -31,12 +33,12 @@ export LCM,
 function encode end
 function decode end
 
-type SubscriptionOptions{T, F}
+struct SubscriptionOptions{T, F}
     msgtype::Type{T}
     handler::F
 end
 
-immutable Subscription{T <: SubscriptionOptions}
+struct Subscription{T <: SubscriptionOptions}
     options::T
     csubscription::Ptr{Void}
 end
@@ -56,10 +58,10 @@ end
 loopback_interface() = chomp(readstring(pipeline(`ifconfig`, `grep -m 1 -i loopback`, `cut -d : -f1`)))
 
 function loopback_multicast_setup_advice(lo::AbstractString)
-    @static if is_apple()
+    if Compat.Sys.isapple()
         """Consider running (as root):
         route add -net 224.0.0.0 -netmask 240.0.0.0 -interface $lo"""
-    elseif is_linux()
+    elseif Compat.Sys.islinux()
         """Consider running (as root):
         ifconfig $lo multicast
         route add -net 224.0.0.0 netmask 240.0.0.0 dev lo"""
@@ -83,12 +85,12 @@ function check_loopback_multicast(lo::AbstractString)
 end
 
 function check_multicast_routing(lo::AbstractString)
-    routing_correct = @static if is_apple()
+    routing_correct = if Compat.Sys.isapple()
         chomp(readstring(pipeline(`route get 224.0.0.0 -netmask 240.0.0.0`, `grep -m 1 -i interface`, `cut -f2 -d :`, `tr -d ' '`))) == lo
-    elseif is_linux()
+    elseif Compat.Sys.islinux()
         chomp(readstring(pipeline(`ip route get 224.0.0.0`, `grep -m 1 -i dev`, `sed 's/.*dev\s*//g'`, `cut -d ' ' -f1`))) == lo
     else
-        error()
+        error("Sorry, I only know how to check multicast routing on Linux and macOS")
     end
     pass = if !routing_correct
         msg = """
@@ -104,7 +106,8 @@ function check_multicast_routing(lo::AbstractString)
     pass
 end
 
-type LCM
+# must be mutable so that we can attach a finalizer
+mutable struct LCM
     pointer::Ptr{Void}
     provider::String
     filedescriptor::RawFD
@@ -141,7 +144,7 @@ function LCM(func::Function)
     end
 end
 
-function publish{T}(lcm::LCM, channel::AbstractString, msg::T)
+function publish(lcm::LCM, channel::AbstractString, msg::T) where T
     data = encode(msg)
     publish(lcm, convert(String, channel), data)
 end
@@ -153,14 +156,14 @@ end
 
 filedescriptor(lcm::LCM) = lcm.filedescriptor
 
-immutable RecvBuf
+struct RecvBuf
     data::Ptr{UInt8}
     data_size::UInt32
     recv_utime::Int64
     lcm::Ptr{Void}
 end
 
-function onresponse{T, F}(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, opts::SubscriptionOptions{T, F})
+function onresponse(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, opts::SubscriptionOptions{T}) where T
     channel = unsafe_string(channelbytes)
     msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
     if isa(T, Type{Void})
@@ -172,12 +175,12 @@ function onresponse{T, F}(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, opts::Subscri
     return nothing::Void
 end
 
-function subscribe{T <: SubscriptionOptions}(lcm::LCM, channel::String, options::T)
+function subscribe(lcm::LCM, channel::String, options::T) where T <: SubscriptionOptions
     csubscription = ccall((:lcm_subscribe, liblcm), Ptr{Void},
         (Ptr{Void}, Ptr{UInt8}, Ptr{Void}, Ptr{Void}),
         lcm,
         channel,
-        cfunction(onresponse, Void, (Ref{RecvBuf}, Ptr{UInt8}, Ref{T})),
+        cfunction(onresponse, Void, Tuple{Ref{RecvBuf}, Ptr{UInt8}, Ref{T}}),
         Ref(options))
     sub = Subscription(options, csubscription)
     push!(lcm.subscriptions, sub)
