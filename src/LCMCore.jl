@@ -206,7 +206,7 @@ lcm_handle(lcm::LCM) = ccall((:lcm_handle, liblcm), Cint, (Ptr{Void},), lcm)
 
 function handle(lcm::LCM)
     fd = filedescriptor(lcm)
-    while true
+    while isgood(lcm)
         event = poll_fd(fd, 10; readable=true)
         if event.readable
             lcm_handle(lcm)
