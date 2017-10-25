@@ -1,5 +1,7 @@
 using Base.Test
 using LCMCore
+using StaticArrays
+using BufferedStreams
 using Base.Dates: Second, Millisecond
 import LCMCore: encode, decode
 
@@ -197,3 +199,5 @@ end
     @test !did_callback1
     @test did_callback2
 end
+
+include("test_lcmtype.jl")
