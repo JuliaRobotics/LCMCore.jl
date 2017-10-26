@@ -6,6 +6,7 @@ using BufferedStreams
 module LCMTestTypes
 
 export LCMTestType1, LCMTestType2, LCMTestType3
+export hard_coded_example
 
 using LCMCore, StaticArrays
 
@@ -29,7 +30,16 @@ function Base.rand(::Type{LCMTestType1})
     LCMTestType1(rand(Int16), blength, rand(Int64, blength), rand(SVector{3, Int32}))
 end
 
-LCMCore.fingerprint(::Type{LCMTestType1}) = SVector(0x36, 0x62, 0xf8, 0xc2, 0x35, 0x8e, 0x35, 0x12) # note: not the correct LCM fingerprint!
+function hard_coded_example(::Type{LCMTestType1})
+    ret = LCMTestType1()
+    ret.a = 1
+    ret.blength = 4
+    ret.b = [4, 5, -6, 7]
+    ret.c = [10, -1, 5]
+    ret
+end
+
+LCMCore.fingerprint(::Type{LCMTestType1}) = SVector(0xd5, 0x93, 0x03, 0xf7, 0x23, 0x48, 0xdb, 0x16)
 LCMCore.size_fields(::Type{LCMTestType1}) = (:blength,)
 LCMCore.check_valid(x::LCMTestType1) = @assert length(x.b) == x.blength
 Base.resize!(x::LCMTestType1) = resize!(x.b, x.blength)
@@ -69,7 +79,22 @@ function Base.rand(::Type{LCMTestType2})
     LCMTestType2(dlength, f_inner_length, a, b, c, d, e, f)
 end
 
-LCMCore.fingerprint(::Type{LCMTestType2}) = SVector(0x26, 0x62, 0xf8, 0xc2, 0x35, 0x8f, 0x35, 0x02) # note: not the correct LCM fingerprint!
+function hard_coded_example(::Type{LCMTestType2})
+    ret = LCMTestType2()
+    ret.dlength = 2
+    ret.f_inner_length = 2
+    ret.a = false
+    ret.b = 6
+    ret.c = hard_coded_example(LCMTestType1)
+    ret.d = [hard_coded_example(LCMTestType1), hard_coded_example(LCMTestType1)]
+    ret.d[1].a = 2
+    ret.e = [hard_coded_example(LCMTestType1), hard_coded_example(LCMTestType1), hard_coded_example(LCMTestType1)]
+    ret.e[3].c = [5, 3, 8]
+    ret.f = [[1, 2], [3, 4], [5, 7]]
+    ret
+end
+
+LCMCore.fingerprint(::Type{LCMTestType2}) = SVector(0xb6, 0x19, 0xed, 0x8b, 0x08, 0x60, 0xcc, 0x1b)
 LCMCore.size_fields(::Type{LCMTestType2}) = (:dlength, :f_inner_length)
 function LCMCore.check_valid(x::LCMTestType2)
     @assert length(x.d) == x.dlength
@@ -110,7 +135,17 @@ function Base.rand(::Type{LCMTestType3})
     LCMTestType3(a, blength, b, c, d)
 end
 
-LCMCore.fingerprint(::Type{LCMTestType3}) = SVector(0x26, 0x62, 0xff, 0xc2, 0x31, 0x8f, 0x32, 0x02) # note: not the correct LCM fingerprint!
+function hard_coded_example(::Type{LCMTestType3})
+    ret = LCMTestType3()
+    ret.a = "abcd"
+    ret.blength = 3
+    ret.b = ["x*4f", "4^G32", "4"]
+    ret.c = ["xyz", "wxy"]
+    ret.d = 2.5
+    ret
+end
+
+LCMCore.fingerprint(::Type{LCMTestType3}) = SVector(0x72, 0x99, 0xcb, 0xe1, 0xc8, 0x03, 0x86, 0x4a)
 LCMCore.size_fields(::Type{LCMTestType3}) = (:blength,)
 LCMCore.check_valid(x::LCMTestType3) = @assert length(x.b) == x.blength
 Base.resize!(x::LCMTestType3) = resize!(x.b, x.blength)
@@ -141,13 +176,14 @@ end
     using LCMTestTypes
     srand(1)
 
+    # Check invertibility
     test_encode_decode(LCMTestType1)
-    test_decode!_allocations(LCMTestType1)
-
     test_encode_decode(LCMTestType2)
-    test_decode!_allocations(LCMTestType2)
-
     test_encode_decode(LCMTestType3)
+
+    # Check that decoding types without `String`s doesn't allocate
+    test_decode!_allocations(LCMTestType1)
+    test_decode!_allocations(LCMTestType2)
 
     # Mismatch between length field and length of corresponding vector
     bad = rand(LCMTestType1)
@@ -159,4 +195,12 @@ end
     badbytes = encode(in)
     badbytes[1] += 0x01
     @test_throws LCMCore.FingerprintException decode(badbytes, LCMTestType1)
+
+    # Test against byte blobs that were encoded using pylcm
+    bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", "lcm_test_type_1_example_bytes"))
+    @test hard_coded_example(LCMTestType1) == decode(bytes, LCMTestType1)
+    bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", "lcm_test_type_2_example_bytes")) # encoded using pylcm
+    @test hard_coded_example(LCMTestType2) == decode(bytes, LCMTestType2)
+    bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", "lcm_test_type_3_example_bytes")) # encoded using pylcm
+    @test hard_coded_example(LCMTestType3) == decode(bytes, LCMTestType3)
 end

@@ -76,56 +76,52 @@ end
 end
 
 function check_fingerprint(io::IO, ::Type{T}) where T<:LCMType
-    decode(io, SVector{8, UInt8}) == fingerprint(T) || throw(FingerprintException(T))
+    decodefield(io, SVector{8, UInt8}) == fingerprint(T) || throw(FingerprintException(T))
 end
 
 # Decoding
+function decode!(x::LCMType, io::IO)
+    check_fingerprint(io, typeof(x))
+    decodefield!(x, io)
+end
+
 """
     decode_in_place(T)
 
 Specify whether type `T` should be decoded in place, i.e. whether to use a
-`decode!` method instead of a `decode` method.
+`decodefield!` method instead of a `decodefield` method.
 """
 function decode_in_place end
 
-"""
-    decode!(x, source)
-
-Decode bytes from `source` into `x` (i.e., decode in place). `source` can
-be either a `Vector{UInt8}` or an `IO` object.
-"""
-function decode! end
-
 Base.@pure decode_in_place(::Type{<:LCMType}) = true
-@generated function decode!(x::T, io::IO) where T<:LCMType
+@generated function decodefield!(x::T, io::IO) where T<:LCMType
     field_assignments = Vector{Expr}(fieldcount(x))
     for (i, fieldname) in enumerate(fieldnames(x))
         F = fieldtype(x, fieldname)
         field_assignments[i] = quote
             if decode_in_place($F)
-                decode!(x.$fieldname, io)
+                decodefield!(x.$fieldname, io)
             else
-                x.$fieldname = decode(io, $F)
+                x.$fieldname = decodefield(io, $F)
             end
             # $(QuoteNode(fieldname)) ∈ size_fields(T) && resize!(x) # allocates!
             any($(QuoteNode(fieldname)) .== size_fields(T)) && resize!(x)
         end
     end
     return quote
-        check_fingerprint(io, T)
         $(field_assignments...)
         return x
     end
 end
 
 Base.@pure decode_in_place(::Type{Bool}) = false
-decode(io::IO, ::Type{Bool}) = read(io, UInt8) == 0x01
+decodefield(io::IO, ::Type{Bool}) = read(io, UInt8) == 0x01
 
 Base.@pure decode_in_place(::Type{<:NETWORK_BYTE_ORDER_TYPES}) = false
-decode(io::IO, ::Type{T}) where {T<:NETWORK_BYTE_ORDER_TYPES} = ntoh(read(io, T))
+decodefield(io::IO, ::Type{T}) where {T<:NETWORK_BYTE_ORDER_TYPES} = ntoh(read(io, T))
 
 Base.@pure decode_in_place(::Type{String}) = false
-function decode(io::IO, ::Type{String})
+function decodefield(io::IO, ::Type{String})
     len = ntoh(read(io, UInt32))
     ret = String(read(io, len - 1))
     read(io, UInt8) # strip off null
@@ -133,28 +129,28 @@ function decode(io::IO, ::Type{String})
 end
 
 Base.@pure decode_in_place(::Type{<:Vector}) = true
-function decode!(x::Vector{T}, io::IO) where T
+function decodefield!(x::Vector{T}, io::IO) where T
     @inbounds for i in eachindex(x)
         if decode_in_place(T)
             isassigned(x, i) || (x[i] = default_value(T))
-            decode!(x[i], io)
+            decodefield!(x[i], io)
         else
-            x[i] = decode(io, T)
+            x[i] = decodefield(io, T)
         end
     end
     x
 end
 
 Base.@pure decode_in_place(::Type{SV}) where {SV<:StaticVector} = decode_in_place(eltype(SV))
-function decode!(x::StaticVector, io::IO)
+function decodefield!(x::StaticVector, io::IO)
     decode_in_place(eltype(x)) || error()
     @inbounds for i in eachindex(x)
-        decode!(x[i], io)
+        decodefield!(x[i], io)
     end
     x
 end
-@generated function decode(io::IO, ::Type{SV}) where {N, T, SV<:StaticVector{N, T}}
-    constructor_arg_exprs = [:(decode(io, T)) for i = 1 : N]
+@generated function decodefield(io::IO, ::Type{SV}) where {N, T, SV<:StaticVector{N, T}}
+    constructor_arg_exprs = [:(decodefield(io, T)) for i = 1 : N]
     return quote
         decode_in_place(T) && error()
         SV(tuple($(constructor_arg_exprs...)))
@@ -168,37 +164,42 @@ end
 
 Write an LCM byte representation of `x` to `io`.
 """
-@generated function encode(io::IO, x::T) where T<:LCMType
+function encode(io::IO, x::LCMType)
+    encodefield(io, fingerprint(typeof(x)))
+    encodefield(io, x)
+end
+
+@generated function encodefield(io::IO, x::LCMType)
     encode_exprs = Vector{Expr}(fieldcount(x))
     for (i, fieldname) in enumerate(fieldnames(x))
-        encode_exprs[i] = :(encode(io, x.$fieldname))
+        encode_exprs[i] = :(encodefield(io, x.$fieldname))
     end
     quote
         check_valid(x)
-        encode(io, fingerprint(T))
         $(encode_exprs...)
         io
     end
 end
 
-encode(io::IO, x::Bool) = write(io, ifelse(x, 0x01, 0x00))
+encodefield(io::IO, x::Bool) = write(io, ifelse(x, 0x01, 0x00))
 
-encode(io::IO, x::NETWORK_BYTE_ORDER_TYPES) = write(io, hton(x))
+encodefield(io::IO, x::NETWORK_BYTE_ORDER_TYPES) = write(io, hton(x))
 
-function encode(io::IO, x::String)
+function encodefield(io::IO, x::String)
     write(io, hton(UInt32(length(x) + 1)))
     write(io, x)
     write(io, UInt8(0))
 end
 
-function encode(io::IO, A::AbstractVector)
+function encodefield(io::IO, A::AbstractVector)
     for x in A
-        encode(io, x)
+        encodefield(io, x)
     end
 end
 
 # Sugar
 encode(data::Vector{UInt8}, x::LCMType) = encode(BufferedOutputStream(data), x)
 encode(x::LCMType) = (stream = BufferedOutputStream(); encode(stream, x); flush(stream); take!(stream))
-decode!(x, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
+
+decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
