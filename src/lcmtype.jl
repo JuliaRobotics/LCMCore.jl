@@ -3,14 +3,15 @@
 
 Supertype of concrete Julia `struct`s that represent LCM message types.
 
-Subtypes must be `mutable struct`s.
+Subtypes must be `mutable struct`s and may use the following field types:
 
-Subtypes may use the following field types:
-
-* numeric types: `Int8`, `Int16`, `Int32`, `Int64`, `Float32`, `Float64`, `UInt8`;
+* `Bool`
+* numeric types: `Int8`, `Int16`, `Int32`, `Int64`, `Float32`, `Float64`
+* bytes (encoded in the same was as `Int8`): `UInt8`;
 * `String`;
-* other `LCMType`s;
-* `Vector`s or `StaticVector`s, whose element types must also be among the previously specified types.
+* another `LCMType`;
+* `Vector` or a subtype of `StaticVector`, for which the element type must also be
+one of the previously specified types or another `Vector` or `StaticVector`.
 
 The following methods must be defined for a concrete subtype of `LCMType` (say `MyType`):
 
