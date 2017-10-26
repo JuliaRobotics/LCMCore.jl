@@ -35,55 +35,52 @@ LCMCore.check_valid(x::LCMTestType1) = @assert length(x.b) == x.blength
 Base.resize!(x::LCMTestType1) = resize!(x.b, x.blength)
 
 mutable struct LCMTestType2 <: LCMType
-    elength::Int32
-    glength::Int32
-    h_inner_length::Int32
+    dlength::Int32
+    f_inner_length::Int32
     a::Bool
     b::UInt8
-    d::LCMTestType1
-    e::Vector{LCMTestType1}
-    f::SVector{3, LCMTestType1}
-    h::SVector{3, Vector{Int64}}
+    c::LCMTestType1
+    d::Vector{LCMTestType1}
+    e::SVector{3, LCMTestType1}
+    f::SVector{3, Vector{Int64}}
 end
 
 function Base.:(==)(x::LCMTestType2, y::LCMTestType2)
-    x.elength == y.elength || return false
-    x.glength == y.glength || return false
-    x.h_inner_length == y.h_inner_length || return false
+    x.dlength == y.dlength || return false
+    x.f_inner_length == y.f_inner_length || return false
     x.a == y.a || return false
     x.b == y.b || return false
+    x.c == y.c || return false
     x.d == y.d || return false
     x.e == y.e || return false
     x.f == y.f || return false
-    x.h == y.h || return false
     true
 end
 
 function Base.rand(::Type{LCMTestType2})
-    elength = rand(Int32(0) : Int32(10))
-    glength = rand(Int32(0) : Int32(10))
-    h_inner_length = rand(Int32(0) : Int32(10))
+    dlength = rand(Int32(0) : Int32(10))
+    f_inner_length = rand(Int32(0) : Int32(10))
     a = rand(Bool)
     b = rand(UInt8)
-    d = rand(LCMTestType1)
-    e = [rand(LCMTestType1) for i = 1 : elength]
-    f = SVector{3}([rand(LCMTestType1) for i = 1 : 3])
-    h = SVector{3}([rand(Int64, h_inner_length) for i = 1 : 3])
-    LCMTestType2(elength, glength, h_inner_length, a, b, d, e, f, h)
+    c = rand(LCMTestType1)
+    d = [rand(LCMTestType1) for i = 1 : dlength]
+    e = SVector{3}([rand(LCMTestType1) for i = 1 : 3])
+    f = SVector{3}([rand(Int64, f_inner_length) for i = 1 : 3])
+    LCMTestType2(dlength, f_inner_length, a, b, c, d, e, f)
 end
 
 LCMCore.fingerprint(::Type{LCMTestType2}) = SVector(0x26, 0x62, 0xf8, 0xc2, 0x35, 0x8f, 0x35, 0x02) # note: not the correct LCM fingerprint!
-LCMCore.size_fields(::Type{LCMTestType2}) = (:elength, :glength, :h_inner_length)
+LCMCore.size_fields(::Type{LCMTestType2}) = (:dlength, :f_inner_length)
 function LCMCore.check_valid(x::LCMTestType2)
-    @assert length(x.e) == x.elength
-    for element in x.h
-        @assert length(element) == x.h_inner_length
+    @assert length(x.d) == x.dlength
+    for element in x.f
+        @assert length(element) == x.f_inner_length
     end
 end
 function Base.resize!(x::LCMTestType2)
-    resize!(x.e, x.elength)
-    for element in x.h
-        resize!(element, x.h_inner_length)
+    resize!(x.d, x.dlength)
+    for element in x.f
+        resize!(element, x.f_inner_length)
     end
 end
 
