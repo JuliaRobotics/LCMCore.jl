@@ -198,8 +198,8 @@ function encodefield(io::IO, A::AbstractVector)
 end
 
 # Sugar
-encode(data::Vector{UInt8}, x::LCMType) = encode(BufferedOutputStream(data), x)
-encode(x::LCMType) = (stream = BufferedOutputStream(); encode(stream, x); flush(stream); take!(stream))
+encode(data::Vector{UInt8}, x::LCMType) = encode(IOBuffer(data, false, true), x)
+encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(stream); take!(stream))
 
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
