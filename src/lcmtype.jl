@@ -65,7 +65,83 @@ default_value(::Type{T}) where {T<:LCMType} = T()
     :(T($(constructor_arg_exprs...)))
 end
 
-# Fingerprint check
+# Field dimension information
+@enum DimensionMode LCM_CONST LCM_VAR
+struct LCMDimension
+    mode::DimensionMode
+    size::String # either a member variable name or a constant; NOTE: needs to be hashed as a String
+end
+LCMDimension(mode::DimensionMode, size::Union{Symbol, Integer}) = LCMDimension(mode, string(size))
+
+# Hash computation
+# Port of https://github.com/ZeroCM/zcm/blob/e9c7bfc401ea15aa64291507da37d1163e5506c0/gen/ZCMGen.cpp#L73-L94
+# NOTE: actual LCM implementation: https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L114-L132
+# uses an int64_t for v and thus relies on undefined behavior; see https://stackoverflow.com/a/4009922.
+function sign_extended_right_shift(val::UInt64, nshift::UInt64)
+    (val >> 63) == 0 ? val >> nshift :
+        (val >> nshift) | ~((1 << (UInt64(64) - nshift)) - UInt64(1))
+end
+
+hash_update(v::UInt64, c::Cchar) = ((v << 8) ⊻ sign_extended_right_shift(v, UInt64(55))) + c
+hash_update(v::UInt64, c::Char) = hash_update(v, Cchar(c))
+hash_update(v::UInt64, n::Integer) = hash_update(v, Cchar(n))
+
+function hash_update(v::UInt64, s::AbstractString)
+    v = hash_update(v, Cchar(length(s)))
+    for char in s
+        v = hash_update(v, char)
+    end
+    v
+end
+
+hash_update(v::UInt64, sym::Symbol) = hash_update(v, string(sym))
+hash_update(v::UInt64, mode::DimensionMode) = hash_update(v, Cchar(mode))
+hash_update(v::UInt64, dim::LCMDimension) = (v = hash_update(v, dim.mode); hash_update(v, dim.size))
+
+isprimitive(::Type{<:LCMType}) = false
+isprimitive(::Type{Int8}) = true
+isprimitive(::Type{Int16}) = true
+isprimitive(::Type{Int32}) = true
+isprimitive(::Type{Int64}) = true
+isprimitive(::Type{Float32}) = true
+isprimitive(::Type{Float64}) = true
+isprimitive(::Type{String}) = true
+isprimitive(::Type{Bool}) = true
+isprimitive(::Type{UInt8}) = true
+isprimitive(::Type{<:AbstractVector{T}}) where {T} = isprimitive(T)
+
+lcmtypename(::Type{Int8}) = "int8_t"
+lcmtypename(::Type{Int16}) = "int16_t"
+lcmtypename(::Type{Int32}) = "int32_t"
+lcmtypename(::Type{Int64}) = "int64_t"
+lcmtypename(::Type{Float32}) = "float"
+lcmtypename(::Type{Float64}) = "double"
+lcmtypename(::Type{String}) = "string"
+lcmtypename(::Type{Bool}) = "boolean"
+lcmtypename(::Type{UInt8}) = "byte"
+lcmtypename(::Type{<:AbstractVector{T}}) where {T} = lcmtypename(T)
+lcmtypename(::Type{T}) where {T<:LCMType} = string(T)
+
+function dimensions end
+
+# port of https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L248-L282
+function base_hash(::Type{T}) where T<:LCMType
+    v = UInt64(0x12345678)
+    for field in fieldnames(T)
+        v = hash_update(v, field)
+        F = fieldtype(T, field)
+        if isprimitive(F)
+            v = hash_update(v, lcmtypename(F))
+        end
+        dims = dimensions(T, field)
+        v = hash_update(v, length(dims))
+        for dim in dims
+            v = hash_update(v, dim)
+        end
+    end
+    v
+end
+
 struct FingerprintException <: Exception
     T::Type
 end
