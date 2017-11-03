@@ -14,9 +14,9 @@ end
 
 function LCMCore.dimensions(::Type{lcm_test_type_1}, field::Symbol)
     if field == :b
-        [LCMDimension(LCMCore.LCM_VAR, :blength)]
+        [LCMDimension(:blength)]
     elseif field == :c
-        [LCMDimension(LCMCore.LCM_CONST, 3)]
+        [LCMDimension(3)]
     else
         LCMDimension[]
     end
@@ -44,8 +44,6 @@ function hard_coded_example(::Type{lcm_test_type_1})
     ret
 end
 
-# TODO: remove:
-LCMCore.fingerprint(::Type{lcm_test_type_1}) = SVector(0xd5, 0x93, 0x03, 0xf7, 0x23, 0x48, 0xdb, 0x16)
 LCMCore.size_fields(::Type{lcm_test_type_1}) = (:blength,)
 LCMCore.check_valid(x::lcm_test_type_1) = @assert length(x.b) == x.blength
 Base.resize!(x::lcm_test_type_1) = resize!(x.b, x.blength)
@@ -63,11 +61,11 @@ end
 
 function LCMCore.dimensions(::Type{lcm_test_type_2}, field::Symbol)
     if field == :d
-        [LCMDimension(LCMCore.LCM_VAR, :dlength)]
+        [LCMDimension(:dlength)]
     elseif field == :e
-        [LCMDimension(LCMCore.LCM_CONST, 3)]
+        [LCMDimension(3)]
     elseif field == :f
-        [LCMDimension(LCMCore.LCM_CONST, 3), LCMDimension(LCMCore.LCM_VAR, :f_inner_length)]
+        [LCMDimension(3), LCMDimension(:f_inner_length)]
     else
         LCMDimension[]
     end
@@ -113,8 +111,6 @@ function hard_coded_example(::Type{lcm_test_type_2})
     ret
 end
 
-# TODO: remove
-LCMCore.fingerprint(::Type{lcm_test_type_2}) = SVector(0xb6, 0x19, 0xed, 0x8b, 0x08, 0x60, 0xcc, 0x1b)
 LCMCore.size_fields(::Type{lcm_test_type_2}) = (:dlength, :f_inner_length)
 function LCMCore.check_valid(x::lcm_test_type_2)
     @assert length(x.d) == x.dlength
@@ -139,9 +135,9 @@ end
 
 function LCMCore.dimensions(::Type{lcm_test_type_3}, field::Symbol)
     if field == :b
-        [LCMDimension(LCMCore.LCM_VAR, :blength)]
+        [LCMDimension(:blength)]
     elseif field == :c
-        [LCMDimension(LCMCore.LCM_CONST, 2)]
+        [LCMDimension(2)]
     else
         LCMDimension[]
     end
@@ -175,8 +171,6 @@ function hard_coded_example(::Type{lcm_test_type_3})
     ret
 end
 
-# TODO: remove:
-LCMCore.fingerprint(::Type{lcm_test_type_3}) = SVector(0x72, 0x99, 0xcb, 0xe1, 0xc8, 0x03, 0x86, 0x4a)
 LCMCore.size_fields(::Type{lcm_test_type_3}) = (:blength,)
 LCMCore.check_valid(x::lcm_test_type_3) = @assert length(x.b) == x.blength
 Base.resize!(x::lcm_test_type_3) = resize!(x.b, x.blength)

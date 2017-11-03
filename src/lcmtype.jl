@@ -17,7 +17,6 @@ The following methods must be defined for a concrete subtype of `LCMType` (say `
 
 * `check_valid(x::MyType)`
 * `size_fields(::Type{MyType})`
-* `fingerprint(::Type{MyType})`
 * `Base.resize!(x::MyType)`
 
 Any size fields must come **before** the `Vector` fields to which they correspond.
@@ -42,18 +41,23 @@ Check that `x` is a valid LCM type. For example, check that array lengths are co
 check_valid(x::LCMType) = error("check_valid method not defined for LCMType $(typeof(x)).")
 
 """
-fingerprint(::Type{T}) where T<:LCMType
+    fingerprint(::Type{T}) where T<:LCMType
 
 Return the fingerprint of LCM type `T` as an `SVector{8, UInt8}`.
 """
-fingerprint(::Type{T}) where {T<:LCMType} = error("fingerprint method not defined for LCMType $T.")
+function fingerprint end
+
+fingerprint(::Type{T}) where {T<:LCMType} = reinterpret(Int64, compute_hash(T, DataType[]))
 
 # Types that are encoded in network byte order, as dictated by the LCM type specification.
-const NETWORK_BYTE_ORDER_TYPES = Union{Int8, Int16, Int32, Int64, Float32, Float64, UInt8}
+const NetworkByteOrderEncoded = Union{Int8, Int16, Int32, Int64, Float32, Float64, UInt8}
+
+# Julia types that correspond to LCM primitive types
+const LCMPrimitive = Union{Int8, Int16, Int32, Int64, Float32, Float64, String, Bool, UInt8}
 
 # Default values for all of the possible field types of an LCM type:
 default_value(::Type{Bool}) = false
-default_value(::Type{T}) where {T<:NETWORK_BYTE_ORDER_TYPES} = zero(T)
+default_value(::Type{T}) where {T<:NetworkByteOrderEncoded} = zero(T)
 default_value(::Type{String}) = ""
 default_value(::Type{T}) where {T<:Vector} = T()
 default_value(::Type{SV}) where {N, T, SV<:StaticVector{N, T}} = SV(ntuple(i -> default_value(T), Val(N)))
@@ -67,11 +71,12 @@ end
 
 # Field dimension information
 @enum DimensionMode LCM_CONST LCM_VAR
-struct LCMDimension
-    mode::DimensionMode
-    size::String # either a member variable name or a constant; NOTE: needs to be hashed as a String
+struct LCMDimension{S <: Union{Symbol, Int}}
+    size::S # either a field name, or the size of a statically-sized field
 end
-LCMDimension(mode::DimensionMode, size::Union{Symbol, Integer}) = LCMDimension(mode, string(size))
+dimensionmode(::Type{LCMDimension{Symbol}}) = LCM_VAR
+dimensionmode(::Type{LCMDimension{Int}}) = LCM_CONST
+
 
 # Hash computation
 # Port of https://github.com/ZeroCM/zcm/blob/e9c7bfc401ea15aa64291507da37d1163e5506c0/gen/ZCMGen.cpp#L73-L94
@@ -96,18 +101,10 @@ end
 
 hash_update(v::UInt64, sym::Symbol) = hash_update(v, string(sym))
 hash_update(v::UInt64, mode::DimensionMode) = hash_update(v, Cchar(mode))
-hash_update(v::UInt64, dim::LCMDimension) = (v = hash_update(v, dim.mode); hash_update(v, dim.size))
+hash_update(v::UInt64, dim::T) where {T<:LCMDimension} = (v = hash_update(v, dimensionmode(T)); hash_update(v, string(dim.size)))
 
 isprimitive(::Type{<:LCMType}) = false
-isprimitive(::Type{Int8}) = true
-isprimitive(::Type{Int16}) = true
-isprimitive(::Type{Int32}) = true
-isprimitive(::Type{Int64}) = true
-isprimitive(::Type{Float32}) = true
-isprimitive(::Type{Float64}) = true
-isprimitive(::Type{String}) = true
-isprimitive(::Type{Bool}) = true
-isprimitive(::Type{UInt8}) = true
+isprimitive(::Type{T}) where {T<:LCMPrimitive} = true
 isprimitive(::Type{<:AbstractVector{T}}) where {T} = isprimitive(T)
 
 lcmtypename(::Type{Int8}) = "int8_t"
@@ -142,6 +139,18 @@ function base_hash(::Type{T}) where T<:LCMType
     v
 end
 
+compute_hash(::Type{T}, parents::Vector{DataType}) where {T<:LCMPrimitive} = zero(UInt64)
+compute_hash(::Type{<:AbstractVector{T}}, parents::Vector{DataType}) where {T} = compute_hash(T, parents)
+function compute_hash(::Type{T}, parents::Vector{DataType}) where T<:LCMType
+    T in parents && return UInt64(0)
+    hash = base_hash(T)
+    for field in fieldnames(T)
+        F = fieldtype(T, field)
+        hash += compute_hash(F, vcat(parents, T))
+    end
+    (hash << 1) + ((hash >> 63) & 1)
+end
+
 struct FingerprintException <: Exception
     T::Type
 end
@@ -152,7 +161,7 @@ end
 end
 
 function check_fingerprint(io::IO, ::Type{T}) where T<:LCMType
-    decodefield(io, SVector{8, UInt8}) == fingerprint(T) || throw(FingerprintException(T))
+    decodefield(io, Int64) == fingerprint(T) || throw(FingerprintException(T))
 end
 
 # Decoding
@@ -193,8 +202,8 @@ end
 Base.@pure decode_in_place(::Type{Bool}) = false
 decodefield(io::IO, ::Type{Bool}) = read(io, UInt8) == 0x01
 
-Base.@pure decode_in_place(::Type{<:NETWORK_BYTE_ORDER_TYPES}) = false
-decodefield(io::IO, ::Type{T}) where {T<:NETWORK_BYTE_ORDER_TYPES} = ntoh(read(io, T))
+Base.@pure decode_in_place(::Type{<:NetworkByteOrderEncoded}) = false
+decodefield(io::IO, ::Type{T}) where {T<:NetworkByteOrderEncoded} = ntoh(read(io, T))
 
 Base.@pure decode_in_place(::Type{String}) = false
 function decodefield(io::IO, ::Type{String})
@@ -258,15 +267,12 @@ end
 end
 
 encodefield(io::IO, x::Bool) = write(io, ifelse(x, 0x01, 0x00))
-
-encodefield(io::IO, x::NETWORK_BYTE_ORDER_TYPES) = write(io, hton(x))
-
+encodefield(io::IO, x::NetworkByteOrderEncoded) = write(io, hton(x))
 function encodefield(io::IO, x::String)
     write(io, hton(UInt32(length(x) + 1)))
     write(io, x)
     write(io, UInt8(0))
 end
-
 function encodefield(io::IO, A::AbstractVector)
     for x in A
         encodefield(io, x)
