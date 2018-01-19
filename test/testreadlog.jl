@@ -143,8 +143,7 @@ function handletest(chn, msgdata)
 end
 
 
-# _log = lcm_eventlog_create("/home/dehann/data/Robot-20170918-211035-simulator.lcm")
-log = LCMlog("/home/dehann/data/Robot-20170918-211035-simulator.lcm")
+log = LCMlog("lcmlog.lcm")
 
 
 subscribe(log, "IMU_SIMULATOR", handletest)
