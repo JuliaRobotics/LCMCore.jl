@@ -3,3 +3,5 @@ BinDeps 0.4.0
 @osx Homebrew 0.3.0
 CMakeWrapper 0.0.1
 Compat 0.27
+StaticArrays
+BufferedStreams

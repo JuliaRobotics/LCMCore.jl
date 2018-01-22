@@ -1,0 +1,10 @@
+package lcmtesttypes;
+
+struct lcm_test_type_3_t
+{
+    string a;
+    int32_t blength;
+    string b[blength];
+    string c[2];
+    double d;
+}

@@ -1,11 +1,11 @@
 # Read LCM log files directly
 
-export
-  LCMlog,
-  close,
-  readNextEvent,
-  handle,
-  subscribe
+# export
+#   LCMlog,
+#   close,
+#   readNextEvent,
+#   handle,
+#   subscribe
 
 # also see JuliaLang's RawFD type, but little information found.
 # www.c4learn/c-programming/c-file-structure-and-file-pointer

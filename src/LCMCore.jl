@@ -3,6 +3,8 @@ __precompile__()
 module LCMCore
 
 using Compat
+using StaticArrays
+using BufferedStreams
 
 depsjl = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")
 if !isfile(depsjl)
@@ -14,16 +16,23 @@ end
 import Base: unsafe_convert, close
 using Base.Dates: Period, Millisecond
 export LCM,
+       LCMType,
        publish,
        close,
        filedescriptor,
        encode,
        decode,
+       decode!,
+       size_fields,
+       check_valid,
+       fingerprint,
        subscribe,
        unsubscribe,
        handle,
        set_queue_capacity,
-       isgood
+       isgood,
+       LCMlog,
+       readNextEvent
 
 
 # These are the methods that custom LCM types need to overload.
@@ -227,6 +236,7 @@ function handle(lcm::LCM, timeout::Period)
     end
 end
 
-include("ReadLog.jl")
+include("lcmtype.jl")
 
+include("ReadLog.jl")
 end

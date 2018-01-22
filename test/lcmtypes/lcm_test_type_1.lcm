@@ -1,0 +1,9 @@
+package lcmtesttypes;
+
+struct lcm_test_type_1_t
+{
+    int16_t a;
+    int32_t blength;
+    int64_t b[blength];
+    int32_t c[3];
+}
