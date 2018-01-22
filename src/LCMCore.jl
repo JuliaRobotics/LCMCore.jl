@@ -3,6 +3,8 @@ __precompile__()
 module LCMCore
 
 using Compat
+using StaticArrays
+using BufferedStreams
 
 depsjl = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")
 if !isfile(depsjl)
@@ -14,11 +16,16 @@ end
 import Base: unsafe_convert, close
 using Base.Dates: Period, Millisecond
 export LCM,
+       LCMType,
        publish,
        close,
        filedescriptor,
        encode,
        decode,
+       decode!,
+       size_fields,
+       check_valid,
+       fingerprint,
        subscribe,
        unsubscribe,
        handle,
@@ -226,5 +233,7 @@ function handle(lcm::LCM, timeout::Period)
         return false
     end
 end
+
+include("lcmtype.jl")
 
 end

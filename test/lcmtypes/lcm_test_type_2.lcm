@@ -1,0 +1,13 @@
+package lcmtesttypes;
+
+struct lcm_test_type_2_t
+{
+    int32_t dlength;
+    int32_t f_inner_length;
+    boolean a;
+    byte b;
+    lcm_test_type_1_t c;
+    lcm_test_type_1_t d[dlength];
+    lcm_test_type_1_t e[3];
+    int64_t f[3][f_inner_length];
+}
