@@ -197,3 +197,9 @@ end
     @test !did_callback1
     @test did_callback2
 end
+
+
+@testset "reading LCM log directly" begin
+  include("testreadlog.jl")
+  main()
+end

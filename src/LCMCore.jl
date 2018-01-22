@@ -227,4 +227,6 @@ function handle(lcm::LCM, timeout::Period)
     end
 end
 
+include("ReadLog.jl")
+
 end
