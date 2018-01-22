@@ -99,7 +99,7 @@ function close(lcmlog::LCMlog)
   end
 end
 
-isgood(_event::Ptr{lcm_eventlog_event_t}) = _event == C_NULL
+isgood(_event::Ptr{lcm_eventlog_event_t}) = _event != C_NULL
 
 function readNextEvent(lcmlog::LCMlog)::Union{Void, lcm_eventlog_event_t}
   _event = lcm_eventlog_read_next_event(lcmlog._log)
