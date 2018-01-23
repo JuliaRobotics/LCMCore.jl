@@ -113,4 +113,24 @@ LCM() do lcm
 end
 ```
 
-which will automatically close the LCM object at the end of the block. 
+which will automatically close the LCM object at the end of the block.
+
+## Reading LCM log files directly
+
+LCM log files can also be read directly, without the UDP multicasting events.
+Events are read from file one at a time and use a similar API as the UDP traffic interface.
+```julia
+function callback(channel, msgdata)
+  msg = covert(MsgType, msgdata) # decode
+  # ...
+  nothing
+end
+
+lcm = LCMlog("log.lcm")
+subscribe(lc, "CHANNEL", callback )
+#subscribe(lc, "CHANNEL", typedcallback, MsgType )
+
+while handle(lcm); end
+```
+
+See the `test` folder for a more detailed example.
