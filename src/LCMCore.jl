@@ -30,7 +30,8 @@ export LCM,
        unsubscribe,
        handle,
        set_queue_capacity,
-       isgood
+       isgood,
+       LCMLog
 
 
 # These are the methods that custom LCM types need to overload.
@@ -236,4 +237,5 @@ end
 
 include("lcmtype.jl")
 
+include("ReadLog.jl")
 end

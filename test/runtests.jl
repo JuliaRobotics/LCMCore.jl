@@ -201,3 +201,10 @@ end
 end
 
 include("test_lcmtype.jl")
+
+@testset "reading LCM log directly" begin
+  include("testreadlog.jl")
+  foroverrun()
+  whilestyle()
+  wrongfilename()
+end
