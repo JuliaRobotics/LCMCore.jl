@@ -204,5 +204,7 @@ include("test_lcmtype.jl")
 
 @testset "reading LCM log directly" begin
   include("testreadlog.jl")
-  main()
+  foroverrun()
+  whilestyle()
+  wrongfilename()
 end

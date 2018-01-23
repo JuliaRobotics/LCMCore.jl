@@ -31,8 +31,7 @@ export LCM,
        handle,
        set_queue_capacity,
        isgood,
-       LCMlog,
-       readNextEvent
+       LCMLog
 
 
 # These are the methods that custom LCM types need to overload.

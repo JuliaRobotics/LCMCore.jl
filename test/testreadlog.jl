@@ -1,5 +1,6 @@
 # testing ccall of LCM log file handling
 
+## Not repeating the definitions from earlier in the runtests.jl file
 # using Base: Test
 # using LCMCore
 #
@@ -9,8 +10,6 @@
 #     field1::Int32
 #     field2::Float64
 # end
-#
-# compare(a::MyMessage, b::MyMessage; tol::Float64=1e-14) = a.field1 == b.field1 && abs(a.field2 - b.field2) < tol
 #
 # function encode(msg::MyMessage)
 #     buf = IOBuffer()
@@ -23,6 +22,8 @@
 #     buf = IOBuffer(data)
 #     MyMessage(ntoh(read(buf, Int32)), ntoh(read(buf, Float64)))
 # end
+
+compare(a::MyMessage, b::MyMessage; tol::Float64=1e-14) = a.field1 == b.field1 && abs(a.field2 - b.field2) < tol
 
 function handledata(channel, msgdata, groundtruth)
   msg = decode(msgdata, MyMessage)
@@ -42,7 +43,7 @@ function handlefile(lcl; N=1)
   nothing
 end
 
-function main()
+function foroverrun()
   # record a temporary log file
   lcmlogdir = joinpath(dirname(@__FILE__),"testdata","testlog.lcm")
 
@@ -50,7 +51,7 @@ function main()
   msg1 = MyMessage(23, 1.234)
   msg2 = MyMessage(24, 2.345)
 
-  lc = LCMlog(lcmlogdir)
+  lc = LCMLog(lcmlogdir)
   subscribe(lc, "CHANNEL_1", (c, d) -> handledata(c, d, msg1) )
   subscribe(lc, "CHANNEL_2", (c, m) -> handletype(c, m, msg2), MyMessage)
   # Consume the log file
@@ -60,10 +61,38 @@ function main()
   nothing
 end
 
+function whilestyle()
+  # record a temporary log file
+  lcmlogdir = joinpath(dirname(@__FILE__),"testdata","testlog.lcm")
+
+  # recreate the messages locally for comparison with those in the test log file
+  msg1 = MyMessage(23, 1.234)
+  msg2 = MyMessage(24, 2.345)
+
+  lc = LCMLog(lcmlogdir)
+  subscribe(lc, "CHANNEL_1", (c, d) -> handledata(c, d, msg1) )
+  subscribe(lc, "CHANNEL_2", (c, m) -> handletype(c, m, msg2), MyMessage)
+  # Consume the log file
+  while handle(lc); end
+  @test true
+  close(lc)
+  nothing
+end
+
+function wrongfilename()
+  lc = nothing
+  try
+    lc = LCMLog("doesnt.exs")
+    @show lc
+  catch e
+    # @show e
+  end
+  @test true
+end
 
 
 
-
+## Code used to create the testlog.lcm LCM log file used in this test
 # lcm = LCM()
 # msg1 = MyMessage(23, 1.234)
 # msg2 = MyMessage(24, 2.345)
