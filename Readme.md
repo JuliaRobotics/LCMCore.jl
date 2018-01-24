@@ -126,9 +126,9 @@ function callback(channel, msgdata)
   nothing
 end
 
-lcm = LCMlog("log.lcm")
-subscribe(lc, "CHANNEL", callback )
-#subscribe(lc, "CHANNEL", typedcallback, MsgType )
+lcm = LCMLog("log.lcm")
+subscribe(lcm, "CHANNEL", callback )
+#subscribe(lcm, "CHANNEL", typedcallback, MsgType )
 
 while handle(lcm); end
 ```

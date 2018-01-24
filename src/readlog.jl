@@ -57,7 +57,7 @@ mutable struct LCMLog
   function LCMLog(filename::S) where {S <: AbstractString}
     _log = lcm_eventlog_create(filename)
     if !isgood(_log)
-      throw("Cannot open the LCM log file at: $filename")
+      throw(ArgumentError("Cannot open the LCM log file at: $filename"))
     end
     return new(_log, Dict{AbstractString, LCMCore.SubscriptionOptions}())
   end
