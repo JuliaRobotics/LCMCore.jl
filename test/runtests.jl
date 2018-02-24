@@ -202,4 +202,4 @@ end
 
 include("test_lcmtype.jl")
 include("test_readlog.jl")
-
+include("test_lcmgenjl.jl")
