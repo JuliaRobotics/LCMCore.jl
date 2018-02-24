@@ -79,18 +79,11 @@ function whilestyle()
   nothing
 end
 
-function wrongfilename()
-  lc = nothing
-  try
-    lc = LCMLog("doesnt.exs")
-    @show lc
-  catch e
-    # @show e
-  end
-  @test true
+@testset "reading LCM log directly" begin
+  foroverrun()
+  whilestyle()
+  @test_throws ArgumentError LCMLog("doesnt.exs")
 end
-
-
 
 ## Code used to create the testlog.lcm LCM log file used in this test
 # lcm = LCM()
