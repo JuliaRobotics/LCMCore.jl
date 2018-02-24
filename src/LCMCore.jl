@@ -31,10 +31,14 @@ export LCM,
        handle,
        set_queue_capacity,
        isgood,
-       LCMLog
-
+       LCMLog,
+       lcmgenjl,  # experimental feature
+       LCMTypeCWrapper,
+       LCMTypeJL
 
 include("core.jl")
 include("lcmtype.jl")
 include("readlog.jl")
+include("experimental/autogenfromlcm.jl")
+
 end
