@@ -308,18 +308,28 @@ function make_dimensions_methods(::Type{T}) where T<:LCMType
 end
 
 macro lcmtype(lcmt, dimensioninfos...)
-    # `LCMCore.dimensions` methods for variable-length dimensions
+    # LCMCore.dimensions methods for variable-length dimensions
+    sizefields = Symbol[]
     vardimmethods = map(dimensioninfos) do dimensioninfo
         @assert dimensioninfo.head == :call
         @assert dimensioninfo.args[1] == :(=>)
         @assert dimensioninfo.args[2].head == :tuple
         @assert length(dimensioninfo.args[2].args) == 2
         field, axis = dimensioninfo.args[2].args
-        dim = dimensioninfo.args[3]
+        dim = dimensioninfo.args[3]::Symbol
+        push!(sizefields, dim)
         quote
             let lcmdim = LCMCore.LCMDimension($(QuoteNode(dim)))
                 LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(field))}, ::Val{$axis}) = lcmdim
             end
+        end
+    end
+
+    dimmethods = :(LCMCore.make_dimensions_methods($lcmt))
+
+    sizefieldsmethod = quote
+        let sizefieldtup = tuple($(map(QuoteNode, sizefields)...))
+            LCMCore.size_fields(::Type{$lcmt}) = sizefieldtup
         end
     end
 
@@ -332,7 +342,8 @@ macro lcmtype(lcmt, dimensioninfos...)
 
     esc(quote
         $(vardimmethods...)
-        LCMCore.make_dimensions_methods($lcmt)
+        $dimmethods
+        $sizefieldsmethod
         $fingerprint
     end)
 end

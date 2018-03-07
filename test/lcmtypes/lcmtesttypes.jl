@@ -38,7 +38,6 @@ function hard_coded_example(::Type{lcm_test_type_1})
     ret
 end
 
-LCMCore.size_fields(::Type{lcm_test_type_1}) = (:blength,)
 LCMCore.check_valid(x::lcm_test_type_1) = @assert length(x.b) == x.blength
 Base.resize!(x::lcm_test_type_1) = resize!(x.b, x.blength)
 
@@ -97,7 +96,6 @@ function hard_coded_example(::Type{lcm_test_type_2})
     ret
 end
 
-LCMCore.size_fields(::Type{lcm_test_type_2}) = (:dlength, :f_inner_length)
 function LCMCore.check_valid(x::lcm_test_type_2)
     @assert length(x.d) == x.dlength
     for element in x.f
@@ -151,7 +149,6 @@ function hard_coded_example(::Type{lcm_test_type_3})
     ret
 end
 
-LCMCore.size_fields(::Type{lcm_test_type_3}) = (:blength,)
 LCMCore.check_valid(x::lcm_test_type_3) = @assert length(x.b) == x.blength
 Base.resize!(x::lcm_test_type_3) = resize!(x.b, x.blength)
 
