@@ -120,6 +120,7 @@ lcmtypename(::Type{<:AbstractVector{T}}) where {T} = lcmtypename(T)
 lcmtypename(::Type{T}) where {T<:LCMType} = string(T)
 
 function dimensions end
+dimensions(::Type{<:LCMType}, ::Val) = () # fallback for when no dimension is specified
 
 # port of https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L248-L282
 function base_hash(::Type{T}) where T<:LCMType
@@ -130,7 +131,7 @@ function base_hash(::Type{T}) where T<:LCMType
         if isprimitive(F)
             v = hash_update(v, lcmtypename(F))
         end
-        dims = dimensions(T, field)
+        dims = dimensions(T, Val(field))
         v = hash_update(v, length(dims))
         for dim in dims
             v = hash_update(v, dim)

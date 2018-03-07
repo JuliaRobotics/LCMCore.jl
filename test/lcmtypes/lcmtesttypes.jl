@@ -12,15 +12,8 @@ mutable struct lcm_test_type_1 <: LCMType
     c::SVector{3, Int32}
 end
 
-function LCMCore.dimensions(::Type{lcm_test_type_1}, field::Symbol)
-    if field == :b
-        [LCMDimension(:blength)]
-    elseif field == :c
-        [LCMDimension(3)]
-    else
-        LCMDimension[]
-    end
-end
+LCMCore.dimensions(::Type{lcm_test_type_1}, ::Val{:b}) = (LCMDimension(:blength), )
+LCMCore.dimensions(::Type{lcm_test_type_1}, ::Val{:c}) = (LCMDimension(3), )
 
 function Base.:(==)(x::lcm_test_type_1, y::lcm_test_type_1)
     x.a == y.a || return false
@@ -59,18 +52,9 @@ mutable struct lcm_test_type_2 <: LCMType
     f::SVector{3, Vector{Int64}}
 end
 
-function LCMCore.dimensions(::Type{lcm_test_type_2}, field::Symbol)
-    if field == :d
-        [LCMDimension(:dlength)]
-    elseif field == :e
-        [LCMDimension(3)]
-    elseif field == :f
-        [LCMDimension(3), LCMDimension(:f_inner_length)]
-    else
-        LCMDimension[]
-    end
-end
-
+LCMCore.dimensions(::Type{lcm_test_type_2}, ::Val{:d}) = (LCMDimension(:dlength), )
+LCMCore.dimensions(::Type{lcm_test_type_2}, ::Val{:e}) = (LCMDimension(3), )
+LCMCore.dimensions(::Type{lcm_test_type_2}, ::Val{:f}) = (LCMDimension(3), LCMDimension(:f_inner_length))
 
 function Base.:(==)(x::lcm_test_type_2, y::lcm_test_type_2)
     x.dlength == y.dlength || return false
@@ -133,15 +117,8 @@ mutable struct lcm_test_type_3 <: LCMType
     d::Float64
 end
 
-function LCMCore.dimensions(::Type{lcm_test_type_3}, field::Symbol)
-    if field == :b
-        [LCMDimension(:blength)]
-    elseif field == :c
-        [LCMDimension(2)]
-    else
-        LCMDimension[]
-    end
-end
+LCMCore.dimensions(::Type{lcm_test_type_3}, ::Val{:b}) = (LCMDimension(:blength), )
+LCMCore.dimensions(::Type{lcm_test_type_3}, ::Val{:c}) = (LCMDimension(2), )
 
 function Base.:(==)(x::lcm_test_type_3, y::lcm_test_type_3)
     x.a == y.a || return false
