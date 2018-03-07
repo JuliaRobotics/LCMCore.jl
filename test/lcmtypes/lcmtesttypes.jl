@@ -13,8 +13,7 @@ mutable struct lcm_test_type_1 <: LCMType
 end
 
 @lcmtype(lcm_test_type_1,
-    b => (blength, ),
-    c => (3, )
+    (b, 1) => blength
 )
 
 function Base.:(==)(x::lcm_test_type_1, y::lcm_test_type_1)
@@ -55,9 +54,8 @@ mutable struct lcm_test_type_2 <: LCMType
 end
 
 @lcmtype(lcm_test_type_2,
-    d => (dlength, ),
-    e => (3, ),
-    f => (3, f_inner_length)
+    (d, 1) => dlength,
+    (f, 2) => f_inner_length
 )
 
 function Base.:(==)(x::lcm_test_type_2, y::lcm_test_type_2)
@@ -122,8 +120,7 @@ mutable struct lcm_test_type_3 <: LCMType
 end
 
 @lcmtype(lcm_test_type_3,
-    b => (blength, ),
-    c => (2, )
+    (b, 1) => blength
 )
 
 function Base.:(==)(x::lcm_test_type_3, y::lcm_test_type_3)

@@ -118,7 +118,6 @@ lcmtypename(::Type{<:AbstractVector{T}}) where {T} = lcmtypename(T)
 lcmtypename(::Type{T}) where {T<:LCMType} = string(T)
 
 function dimensions end
-dimensions(::Type{<:LCMType}, ::Val) = () # fallback for when no dimension is specified
 
 # port of https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L248-L282
 function base_hash(::Type{T}) where T<:LCMType
@@ -285,30 +284,55 @@ encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(s
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 
+function make_dimensions_method(::Type{T}, ::Type{<:SVector{N, <:Any}}, field::Symbol, axisnum::Int) where {T<:LCMType, N}
+    let lcmdim = LCMCore.LCMDimension(N)
+        LCMCore.dimensions(::Type{T}, ::Val{field}, ::Val{axisnum}) = lcmdim
+    end
+end
+
+function make_fixed_dimensions_methods(::Type{T}, ::Type{F}, field::Symbol, axisnum::Int) where {T<:LCMType, V, F<:AbstractVector{V}}
+    F <: SVector && make_dimensions_method(T, F, field, axisnum)
+    V <: AbstractVector && return make_fixed_dimensions_methods(T, V, field, axisnum + 1)
+    axisnum
+end
+
+function make_dimensions_methods(::Type{T}) where T<:LCMType
+    for field in fieldnames(T)
+        F = fieldtype(T, field)
+        numaxes = F <: AbstractVector ? make_fixed_dimensions_methods(T, F, field, 1) : 0
+        fieldval = Val(field)
+        let dimtuple = ntuple(i -> Base.invokelatest(LCMCore.dimensions, T, fieldval, Val(i)), numaxes)
+            LCMCore.dimensions(::Type{T}, ::Val{field}) = dimtuple
+        end
+    end
+end
+
 macro lcmtype(lcmt, dimensioninfos...)
-    dimensionsmethods = map(dimensioninfos) do dimensioninfo
+    # `LCMCore.dimensions` methods for variable-length dimensions
+    vardimmethods = map(dimensioninfos) do dimensioninfo
         @assert dimensioninfo.head == :call
         @assert dimensioninfo.args[1] == :(=>)
-        field = dimensioninfo.args[2]
-        dimensions = dimensioninfo.args[3]
-        @assert dimensions.head == :tuple
-        lcmdimensions = [:(LCMDimension($(QuoteNode(dim)))) for dim in dimensions.args]
-        ret = :((($(lcmdimensions...)),))
+        @assert dimensioninfo.args[2].head == :tuple
+        @assert length(dimensioninfo.args[2].args) == 2
+        field, axis = dimensioninfo.args[2].args
+        dim = dimensioninfo.args[3]
         quote
-            let dim = $ret
-                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(field))}) = dim
+            let lcmdim = LCMCore.LCMDimension($(QuoteNode(dim)))
+                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(field))}, ::Val{$axis}) = lcmdim
             end
         end
     end
 
-    fingerprintmethod = quote
+    # LCMCore.fingerprint method
+    fingerprint = quote
         let hash = reinterpret(Int64, LCMCore.compute_hash($lcmt, DataType[]))
             LCMCore.fingerprint(::Type{$lcmt}) = hash
         end
     end
 
     esc(quote
-        $(dimensionsmethods...)
-        $fingerprintmethod
+        $(vardimmethods...)
+        LCMCore.make_dimensions_methods($lcmt)
+        $fingerprint
     end)
 end
