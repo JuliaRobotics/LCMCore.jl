@@ -40,8 +40,8 @@ end
     test_encode_decode(lcm_test_type_3)
 
     # Check that decoding types without `String`s doesn't allocate
-    # test_in_place_decode_noalloc(lcm_test_type_1)
-    # test_in_place_decode_noalloc(lcm_test_type_2)
+    test_in_place_decode_noalloc(lcm_test_type_1)
+    test_in_place_decode_noalloc(lcm_test_type_2)
 
     # Mismatch between length field and length of corresponding vector
     bad = rand(lcm_test_type_1)

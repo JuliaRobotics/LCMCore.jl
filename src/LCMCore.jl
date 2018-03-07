@@ -32,7 +32,8 @@ export LCM,
        handle,
        set_queue_capacity,
        isgood,
-       LCMLog
+       LCMLog,
+       @lcmtype
 
 
 include("core.jl")

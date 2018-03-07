@@ -47,8 +47,6 @@ Return the fingerprint of LCM type `T` as an `SVector{8, UInt8}`.
 """
 function fingerprint end
 
-fingerprint(::Type{T}) where {T<:LCMType} = reinterpret(Int64, compute_hash(T, DataType[]))
-
 # Types that are encoded in network byte order, as dictated by the LCM type specification.
 const NetworkByteOrderEncoded = Union{Int8, Int16, Int32, Int64, Float32, Float64, UInt8}
 
@@ -286,3 +284,12 @@ encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(s
 
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
+
+macro lcmtype(lcmt)
+    esc(quote
+        let
+            hash = reinterpret(Int64, LCMCore.compute_hash($lcmt, DataType[]))
+            LCMCore.fingerprint(::Type{$lcmt}) = hash
+        end
+    end)
+end

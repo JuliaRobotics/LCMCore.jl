@@ -14,6 +14,7 @@ end
 
 LCMCore.dimensions(::Type{lcm_test_type_1}, ::Val{:b}) = (LCMDimension(:blength), )
 LCMCore.dimensions(::Type{lcm_test_type_1}, ::Val{:c}) = (LCMDimension(3), )
+@lcmtype lcm_test_type_1
 
 function Base.:(==)(x::lcm_test_type_1, y::lcm_test_type_1)
     x.a == y.a || return false
@@ -55,6 +56,8 @@ end
 LCMCore.dimensions(::Type{lcm_test_type_2}, ::Val{:d}) = (LCMDimension(:dlength), )
 LCMCore.dimensions(::Type{lcm_test_type_2}, ::Val{:e}) = (LCMDimension(3), )
 LCMCore.dimensions(::Type{lcm_test_type_2}, ::Val{:f}) = (LCMDimension(3), LCMDimension(:f_inner_length))
+@lcmtype lcm_test_type_2
+
 
 function Base.:(==)(x::lcm_test_type_2, y::lcm_test_type_2)
     x.dlength == y.dlength || return false
@@ -119,6 +122,7 @@ end
 
 LCMCore.dimensions(::Type{lcm_test_type_3}, ::Val{:b}) = (LCMDimension(:blength), )
 LCMCore.dimensions(::Type{lcm_test_type_3}, ::Val{:c}) = (LCMDimension(2), )
+@lcmtype lcm_test_type_3
 
 function Base.:(==)(x::lcm_test_type_3, y::lcm_test_type_3)
     x.a == y.a || return false
