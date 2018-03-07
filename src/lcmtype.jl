@@ -285,11 +285,30 @@ encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(s
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 
-macro lcmtype(lcmt)
-    esc(quote
-        let
-            hash = reinterpret(Int64, LCMCore.compute_hash($lcmt, DataType[]))
+macro lcmtype(lcmt, dimensioninfos...)
+    dimensionsmethods = map(dimensioninfos) do dimensioninfo
+        @assert dimensioninfo.head == :call
+        @assert dimensioninfo.args[1] == :(=>)
+        field = dimensioninfo.args[2]
+        dimensions = dimensioninfo.args[3]
+        @assert dimensions.head == :tuple
+        lcmdimensions = [:(LCMDimension($(QuoteNode(dim)))) for dim in dimensions.args]
+        ret = :((($(lcmdimensions...)),))
+        quote
+            let dim = $ret
+                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(field))}) = dim
+            end
+        end
+    end
+
+    fingerprintmethod = quote
+        let hash = reinterpret(Int64, LCMCore.compute_hash($lcmt, DataType[]))
             LCMCore.fingerprint(::Type{$lcmt}) = hash
         end
+    end
+
+    esc(quote
+        $(dimensionsmethods...)
+        $fingerprintmethod
     end)
 end
