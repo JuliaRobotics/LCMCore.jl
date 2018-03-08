@@ -349,6 +349,8 @@ function make_dimensions_methods(::Type{T}) where T<:LCMType
         F = fieldtype(T, field)
         numaxes = F <: AbstractVector ? make_fixed_dimensions_methods(T, F, field, 1) : 0
         fieldval = Val(field)
+        # Need to use invokelatest here, as the methods just created in `make_fixed_dimensions_methods`
+        # would otherwise be too new to be visible here.
         let dimtuple = ntuple(i -> Base.invokelatest(LCMCore.dimensions, T, fieldval, Val(i)), numaxes)
             LCMCore.dimensions(::Type{T}, ::Val{field}) = dimtuple
         end
