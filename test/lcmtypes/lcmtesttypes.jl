@@ -39,7 +39,6 @@ function hard_coded_example(::Type{lcm_test_type_1})
 end
 
 LCMCore.check_valid(x::lcm_test_type_1) = @assert length(x.b) == x.blength
-Base.resize!(x::lcm_test_type_1) = resize!(x.b, x.blength)
 
 mutable struct lcm_test_type_2 <: LCMType
     dlength::Int32
@@ -102,12 +101,6 @@ function LCMCore.check_valid(x::lcm_test_type_2)
         @assert length(element) == x.f_inner_length
     end
 end
-function Base.resize!(x::lcm_test_type_2)
-    resize!(x.d, x.dlength)
-    for element in x.f
-        resize!(element, x.f_inner_length)
-    end
-end
 
 mutable struct lcm_test_type_3 <: LCMType
     a::String
@@ -150,6 +143,5 @@ function hard_coded_example(::Type{lcm_test_type_3})
 end
 
 LCMCore.check_valid(x::lcm_test_type_3) = @assert length(x.b) == x.blength
-Base.resize!(x::lcm_test_type_3) = resize!(x.b, x.blength)
 
 end # module

@@ -31,7 +31,7 @@ size_fields(x::Type{T}) where T<:LCMType
 
 Returns a tuple of `Symbol`s corresponding to the fields of `T` that represent vector dimensions.
 """
-size_fields(x::Type{T}) where {T<:LCMType} = error("size_fields method not defined for LCMType $T.")
+function size_fields end
 
 """
 check_valid(x::LCMType)
@@ -162,6 +162,30 @@ function check_fingerprint(io::IO, ::Type{T}) where T<:LCMType
     decodefield(io, Int64) == fingerprint(T) || throw(FingerprintException(T))
 end
 
+
+# Resizing
+@generated function Base.resize!(x::T) where T<:LCMType
+    exprs = Expr[]
+    for fieldname in fieldnames(T)
+        F = fieldtype(T, fieldname)
+        F <: AbstractVector && push!(exprs, :(LCMCore.resizevec!(x.$fieldname, x, LCMCore.dimensions(T, $(Val(fieldname)))...)))
+    end
+    quote
+        $(exprs...)
+        return nothing
+    end
+end
+
+@inline resizevec!(vec::SVector, x::LCMType, dim::LCMDimension{Int}) = nothing
+@inline resizevec!(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (resize!(vec, getfield(x, dim.size)); nothing)
+@inline function resizevec!(vec::AbstractVector, x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...)
+    resizevec!(vec, x, dimhead)
+    for vi in vec
+        resizevec!(vi, x, dimtail...)
+    end
+end
+
+
 # Decoding
 function decode!(x::LCMType, io::IO)
     check_fingerprint(io, typeof(x))
@@ -277,6 +301,7 @@ function encodefield(io::IO, A::AbstractVector)
     end
 end
 
+
 # Sugar
 encode(data::Vector{UInt8}, x::LCMType) = encode(IOBuffer(data, false, true), x)
 encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(stream); take!(stream))
@@ -284,6 +309,8 @@ encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(s
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 
+
+# @lcmtype macro and related functions
 function make_dimensions_method(::Type{T}, ::Type{<:SVector{N, <:Any}}, field::Symbol, axisnum::Int) where {T<:LCMType, N}
     let lcmdim = LCMCore.LCMDimension(N)
         LCMCore.dimensions(::Type{T}, ::Val{field}, ::Val{axisnum}) = lcmdim
@@ -308,7 +335,7 @@ function make_dimensions_methods(::Type{T}) where T<:LCMType
 end
 
 macro lcmtype(lcmt, dimensioninfos...)
-    # LCMCore.dimensions methods for variable-length dimensions
+    # LCMCore.dimensions methods for variable dimensions
     sizefields = Symbol[]
     vardimmethods = map(dimensioninfos) do dimensioninfo
         @assert dimensioninfo.head == :call
@@ -325,8 +352,10 @@ macro lcmtype(lcmt, dimensioninfos...)
         end
     end
 
+    # LCMCore.dimensions methods for constant dimensions, and a method that returns a tuple of LCMDimensions for each field
     dimmethods = :(LCMCore.make_dimensions_methods($lcmt))
 
+    # LCMCore.size_fields method
     sizefieldsmethod = quote
         let sizefieldtup = tuple($(map(QuoteNode, sizefields)...))
             LCMCore.size_fields(::Type{$lcmt}) = sizefieldtup
