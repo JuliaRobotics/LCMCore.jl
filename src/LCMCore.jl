@@ -24,16 +24,13 @@ export LCM,
        encode,
        decode,
        decode!,
-       size_fields,
-       check_valid,
-       fingerprint,
        subscribe,
        unsubscribe,
        handle,
        set_queue_capacity,
        isgood,
        LCMLog,
-       @lcmtype
+       @lcmtypesetup
 
 
 include("core.jl")

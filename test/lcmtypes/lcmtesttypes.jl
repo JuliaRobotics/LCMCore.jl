@@ -12,7 +12,7 @@ mutable struct lcm_test_type_1 <: LCMType
     c::SVector{3, Int32}
 end
 
-@lcmtype(lcm_test_type_1,
+@lcmtypesetup(lcm_test_type_1,
     (b, 1) => blength
 )
 
@@ -38,8 +38,6 @@ function hard_coded_example(::Type{lcm_test_type_1})
     ret
 end
 
-LCMCore.check_valid(x::lcm_test_type_1) = @assert length(x.b) == x.blength
-
 mutable struct lcm_test_type_2 <: LCMType
     dlength::Int32
     f_inner_length::Int32
@@ -51,7 +49,7 @@ mutable struct lcm_test_type_2 <: LCMType
     f::SVector{3, Vector{Int64}}
 end
 
-@lcmtype(lcm_test_type_2,
+@lcmtypesetup(lcm_test_type_2,
     (d, 1) => dlength,
     (f, 2) => f_inner_length
 )
@@ -95,13 +93,6 @@ function hard_coded_example(::Type{lcm_test_type_2})
     ret
 end
 
-function LCMCore.check_valid(x::lcm_test_type_2)
-    @assert length(x.d) == x.dlength
-    for element in x.f
-        @assert length(element) == x.f_inner_length
-    end
-end
-
 mutable struct lcm_test_type_3 <: LCMType
     a::String
     blength::Int32
@@ -110,7 +101,7 @@ mutable struct lcm_test_type_3 <: LCMType
     d::Float64
 end
 
-@lcmtype(lcm_test_type_3,
+@lcmtypesetup(lcm_test_type_3,
     (b, 1) => blength
 )
 
@@ -141,7 +132,5 @@ function hard_coded_example(::Type{lcm_test_type_3})
     ret.d = 2.5
     ret
 end
-
-LCMCore.check_valid(x::lcm_test_type_3) = @assert length(x.b) == x.blength
 
 end # module

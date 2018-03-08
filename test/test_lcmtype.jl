@@ -46,7 +46,7 @@ end
     # Mismatch between length field and length of corresponding vector
     bad = rand(lcm_test_type_1)
     bad.blength += 1
-    @test_throws AssertionError encode(bad)
+    @test_throws DimensionMismatch encode(bad)
 
     # Bad fingerprint
     in = rand(lcm_test_type_1)

@@ -13,32 +13,40 @@ Subtypes must be `mutable struct`s and may use the following field types:
 * `Vector` or a subtype of `StaticVector`, for which the element type must also be
 one of the previously specified types or another `Vector` or `StaticVector`.
 
-The following methods must be defined for a concrete subtype of `LCMType` (say `MyType`):
-
-* `check_valid(x::MyType)`
-* `size_fields(::Type{MyType})`
-* `Base.resize!(x::MyType)`
-
 Any size fields must come **before** the `Vector` fields to which they correspond.
 
-Note that ideally, all of these methods would be generated from the LCM message type
+The following methods must be defined for a concrete subtype of `LCMType` (say `MyType`):
+
+* `dimensions(x::MyType, ::Val{fieldsym})`
+* `size_fields(::Type{MyType})`
+
+Note that the `@lcmtypesetup` macro can be used to generate these methods automatically.
+
+Also note that ideally, all of these methods would be generated from the LCM message type
 definition, but that is currently not the case.
 """
 abstract type LCMType end
 
 """
-size_fields(x::Type{T}) where T<:LCMType
+    dimensions(x::LCMType, ::Val{fieldsym})
+
+Return a tuple of LCMDimensions describing the size of `getfield(x, fieldsym)`.
+"""
+function dimensions end
+
+"""
+    size_fields(x::Type{T}) where T<:LCMType
 
 Returns a tuple of `Symbol`s corresponding to the fields of `T` that represent vector dimensions.
 """
 function size_fields end
 
 """
-check_valid(x::LCMType)
+    check_valid(x::LCMType)
 
 Check that `x` is a valid LCM type. For example, check that array lengths are correct.
 """
-check_valid(x::LCMType) = error("check_valid method not defined for LCMType $(typeof(x)).")
+function check_valid end
 
 """
     fingerprint(::Type{T}) where T<:LCMType
@@ -117,7 +125,6 @@ lcmtypename(::Type{UInt8}) = "byte"
 lcmtypename(::Type{<:AbstractVector{T}}) where {T} = lcmtypename(T)
 lcmtypename(::Type{T}) where {T<:LCMType} = string(T)
 
-function dimensions end
 
 # port of https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L248-L282
 function base_hash(::Type{T}) where T<:LCMType
@@ -185,6 +192,28 @@ end
     end
 end
 
+
+# Valid check
+@generated function check_valid(x::T) where T<:LCMType
+    exprs = Expr[]
+    for fieldname in fieldnames(T)
+        F = fieldtype(T, fieldname)
+        F <: AbstractVector && push!(exprs, :(LCMCore.check_vec_length(x.$fieldname, x, LCMCore.dimensions(T, $(Val(fieldname)))...)))
+    end
+    quote
+        $(exprs...)
+        return nothing
+    end
+end
+
+@inline check_vec_length(vec::SVector, x::LCMType, dim::LCMDimension{Int}) = nothing
+@inline check_vec_length(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (length(vec) == getfield(x, dim.size) || throw(DimensionMismatch()))
+@inline function check_vec_length(vec::AbstractVector, x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...)
+    check_vec_length(vec, x, dimhead)
+    for vi in vec
+        check_vec_length(vi, x, dimtail...)
+    end
+end
 
 # Decoding
 function decode!(x::LCMType, io::IO)
@@ -310,7 +339,7 @@ decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 
 
-# @lcmtype macro and related functions
+# @lcmtypesetup macro and related functions
 function make_dimensions_method(::Type{T}, ::Type{<:SVector{N, <:Any}}, field::Symbol, axisnum::Int) where {T<:LCMType, N}
     let lcmdim = LCMCore.LCMDimension(N)
         LCMCore.dimensions(::Type{T}, ::Val{field}, ::Val{axisnum}) = lcmdim
@@ -334,7 +363,7 @@ function make_dimensions_methods(::Type{T}) where T<:LCMType
     end
 end
 
-macro lcmtype(lcmt, dimensioninfos...)
+macro lcmtypesetup(lcmt, dimensioninfos...)
     # LCMCore.dimensions methods for variable dimensions
     sizefields = Symbol[]
     vardimmethods = map(dimensioninfos) do dimensioninfo
