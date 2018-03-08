@@ -1,7 +1,7 @@
 # LCMCore: Low-level Julia bindings for LCM
 
-[![Build Status](https://travis-ci.org/rdeits/LCMCore.jl.svg?branch=master)](https://travis-ci.org/rdeits/LCMCore.jl)
-[![codecov.io](https://codecov.io/github/rdeits/LCMCore.jl/coverage.svg?branch=master)](https://codecov.io/github/rdeits/LCMCore.jl?branch=master)
+[![Build Status](https://travis-ci.org/JuliaRobotics/LCMCore.jl.svg?branch=master)](https://travis-ci.org/JuliaRobotics/LCMCore.jl)
+[![codecov.io](https://codecov.io/github/JuliaRobotics/LCMCore.jl/coverage.svg?branch=master)](https://codecov.io/github/JuliaRobotics/LCMCore.jl?branch=master)
 
 LCMCore.jl provides a low-level Julia interface to the [Lightweight Communications and Marshalling (LCM) library](https://lcm-proj.github.io/). It uses LCM by calling directly into the C library, so it should have very low overhead.
 
