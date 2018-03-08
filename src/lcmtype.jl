@@ -175,11 +175,21 @@ end
 end
 
 @inline resizevec!(vec::SVector, x::LCMType, dim::LCMDimension{Int}) = nothing
-@inline resizevec!(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (resize!(vec, getfield(x, dim.size)); nothing)
+@inline resizevec!(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (_resizevec!(vec, getfield(x, dim.size)); nothing)
 @inline function resizevec!(vec::AbstractVector, x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...)
     resizevec!(vec, x, dimhead)
     for vi in vec
         resizevec!(vi, x, dimtail...)
+    end
+end
+
+@inline function _resizevec!(vec::Vector{T}, newsize::Integer) where T
+    # Note: separated from resizevec! to introduce a function barrier and
+    # achieve zero allocation despite the type-unstable `getfield` call.
+    oldsize = length(vec)
+    resize!(vec, newsize)
+    for i in oldsize + 1 : newsize
+        @inbounds vec[i] = defaultval(T)
     end
 end
 
