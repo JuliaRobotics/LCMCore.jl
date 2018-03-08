@@ -17,7 +17,6 @@ import Base: unsafe_convert, close
 using Base.Dates: Period, Millisecond
 export LCM,
        LCMType,
-       LCMDimension,
        publish,
        close,
        filedescriptor,

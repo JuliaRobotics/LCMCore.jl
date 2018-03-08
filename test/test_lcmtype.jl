@@ -30,9 +30,9 @@ end
     srand(1)
 
     # Check base hashes (obtained from lcm-gen --debug; note that hash reported by lcm-gen is a **signed** integer (despite the 0x prefix))
-    @test LCMCore.base_hash(lcm_test_type_1) == 0x6ac981fb91a46d8b
-    @test LCMCore.base_hash(lcm_test_type_3) == 0x394ce5f0e401c325
-    @test LCMCore.base_hash(lcm_test_type_2) == 0x5a53eae01a55d4cb
+    @test LCMCore.basehash(lcm_test_type_1) == 0x6ac981fb91a46d8b
+    @test LCMCore.basehash(lcm_test_type_3) == 0x394ce5f0e401c325
+    @test LCMCore.basehash(lcm_test_type_2) == 0x5a53eae01a55d4cb
 
     # Check invertibility
     test_encode_decode(lcm_test_type_1)

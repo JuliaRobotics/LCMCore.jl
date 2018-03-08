@@ -18,7 +18,8 @@ Any size fields must come **before** the `Vector` fields to which they correspon
 The following methods must be defined for a concrete subtype of `LCMType` (say `MyType`):
 
 * `dimensions(x::MyType, ::Val{fieldsym})`
-* `size_fields(::Type{MyType})`
+* `sizefields(::Type{MyType})`
+* `fingerprint(::Type{MyType})`
 
 Note that the `@lcmtypesetup` macro can be used to generate these methods automatically.
 
@@ -35,18 +36,11 @@ Return a tuple of LCMDimensions describing the size of `getfield(x, fieldsym)`.
 function dimensions end
 
 """
-    size_fields(x::Type{T}) where T<:LCMType
+    sizefields(x::Type{T}) where T<:LCMType
 
 Returns a tuple of `Symbol`s corresponding to the fields of `T` that represent vector dimensions.
 """
-function size_fields end
-
-"""
-    check_valid(x::LCMType)
-
-Check that `x` is a valid LCM type. For example, check that array lengths are correct.
-"""
-function check_valid end
+function sizefields end
 
 """
     fingerprint(::Type{T}) where T<:LCMType
@@ -62,16 +56,16 @@ const NetworkByteOrderEncoded = Union{Int8, Int16, Int32, Int64, Float32, Float6
 const LCMPrimitive = Union{Int8, Int16, Int32, Int64, Float32, Float64, String, Bool, UInt8}
 
 # Default values for all of the possible field types of an LCM type:
-default_value(::Type{Bool}) = false
-default_value(::Type{T}) where {T<:NetworkByteOrderEncoded} = zero(T)
-default_value(::Type{String}) = ""
-default_value(::Type{T}) where {T<:Vector} = T()
-default_value(::Type{SV}) where {N, T, SV<:StaticVector{N, T}} = SV(ntuple(i -> default_value(T), Val(N)))
-default_value(::Type{T}) where {T<:LCMType} = T()
+defaultval(::Type{Bool}) = false
+defaultval(::Type{T}) where {T<:NetworkByteOrderEncoded} = zero(T)
+defaultval(::Type{String}) = ""
+defaultval(::Type{T}) where {T<:Vector} = T()
+defaultval(::Type{SV}) where {N, T, SV<:StaticVector{N, T}} = SV(ntuple(i -> defaultval(T), Val(N)))
+defaultval(::Type{T}) where {T<:LCMType} = T()
 
 # Generated default constructor for LCMType subtypes
 @generated function (::Type{T})() where T<:LCMType
-    constructor_arg_exprs = [:(default_value(fieldtype(T, $i))) for i = 1 : fieldcount(T)]
+    constructor_arg_exprs = [:(defaultval(fieldtype(T, $i))) for i = 1 : fieldcount(T)]
     :(T($(constructor_arg_exprs...)))
 end
 
@@ -83,7 +77,6 @@ end
 dimensionmode(::Type{LCMDimension{Symbol}}) = LCM_VAR
 dimensionmode(::Type{LCMDimension{Int}}) = LCM_CONST
 
-
 # Hash computation
 # Port of https://github.com/ZeroCM/zcm/blob/e9c7bfc401ea15aa64291507da37d1163e5506c0/gen/ZCMGen.cpp#L73-L94
 # NOTE: actual LCM implementation: https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L114-L132
@@ -93,21 +86,21 @@ function sign_extended_right_shift(val::UInt64, nshift::UInt64)
         (val >> nshift) | ~((1 << (UInt64(64) - nshift)) - UInt64(1))
 end
 
-hash_update(v::UInt64, c::Cchar) = ((v << 8) ⊻ sign_extended_right_shift(v, UInt64(55))) + c
-hash_update(v::UInt64, c::Char) = hash_update(v, Cchar(c))
-hash_update(v::UInt64, n::Integer) = hash_update(v, Cchar(n))
+hashupdate(v::UInt64, c::Cchar) = ((v << 8) ⊻ sign_extended_right_shift(v, UInt64(55))) + c
+hashupdate(v::UInt64, c::Char) = hashupdate(v, Cchar(c))
+hashupdate(v::UInt64, n::Integer) = hashupdate(v, Cchar(n))
 
-function hash_update(v::UInt64, s::AbstractString)
-    v = hash_update(v, Cchar(length(s)))
+function hashupdate(v::UInt64, s::AbstractString)
+    v = hashupdate(v, Cchar(length(s)))
     for char in s
-        v = hash_update(v, char)
+        v = hashupdate(v, char)
     end
     v
 end
 
-hash_update(v::UInt64, sym::Symbol) = hash_update(v, string(sym))
-hash_update(v::UInt64, mode::DimensionMode) = hash_update(v, Cchar(mode))
-hash_update(v::UInt64, dim::T) where {T<:LCMDimension} = (v = hash_update(v, dimensionmode(T)); hash_update(v, string(dim.size)))
+hashupdate(v::UInt64, sym::Symbol) = hashupdate(v, string(sym))
+hashupdate(v::UInt64, mode::DimensionMode) = hashupdate(v, Cchar(mode))
+hashupdate(v::UInt64, dim::T) where {T<:LCMDimension} = (v = hashupdate(v, dimensionmode(T)); hashupdate(v, string(dim.size)))
 
 isprimitive(::Type{<:LCMType}) = false
 isprimitive(::Type{T}) where {T<:LCMPrimitive} = true
@@ -125,33 +118,32 @@ lcmtypename(::Type{UInt8}) = "byte"
 lcmtypename(::Type{<:AbstractVector{T}}) where {T} = lcmtypename(T)
 lcmtypename(::Type{T}) where {T<:LCMType} = string(T)
 
-
 # port of https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L248-L282
-function base_hash(::Type{T}) where T<:LCMType
+function basehash(::Type{T}) where T<:LCMType
     v = UInt64(0x12345678)
     for field in fieldnames(T)
-        v = hash_update(v, field)
+        v = hashupdate(v, field)
         F = fieldtype(T, field)
         if isprimitive(F)
-            v = hash_update(v, lcmtypename(F))
+            v = hashupdate(v, lcmtypename(F))
         end
         dims = dimensions(T, Val(field))
-        v = hash_update(v, length(dims))
+        v = hashupdate(v, length(dims))
         for dim in dims
-            v = hash_update(v, dim)
+            v = hashupdate(v, dim)
         end
     end
     v
 end
 
-compute_hash(::Type{T}, parents::Vector{DataType}) where {T<:LCMPrimitive} = zero(UInt64)
-compute_hash(::Type{<:AbstractVector{T}}, parents::Vector{DataType}) where {T} = compute_hash(T, parents)
-function compute_hash(::Type{T}, parents::Vector{DataType}) where T<:LCMType
+computehash(::Type{T}, parents::Vector{DataType}) where {T<:LCMPrimitive} = zero(UInt64)
+computehash(::Type{<:AbstractVector{T}}, parents::Vector{DataType}) where {T} = computehash(T, parents)
+function computehash(::Type{T}, parents::Vector{DataType}) where T<:LCMType
     T in parents && return UInt64(0)
-    hash = base_hash(T)
+    hash = basehash(T)
     for field in fieldnames(T)
         F = fieldtype(T, field)
-        hash += compute_hash(F, vcat(parents, T))
+        hash += computehash(F, vcat(parents, T))
     end
     (hash << 1) + ((hash >> 63) & 1)
 end
@@ -165,10 +157,9 @@ end
     print(io, "This means that you are trying to decode the wrong message type, or a different version of the message type.")
 end
 
-function check_fingerprint(io::IO, ::Type{T}) where T<:LCMType
+function checkfingerprint(io::IO, ::Type{T}) where T<:LCMType
     decodefield(io, Int64) == fingerprint(T) || throw(FingerprintException(T))
 end
-
 
 # Resizing
 @generated function Base.resize!(x::T) where T<:LCMType
@@ -192,13 +183,17 @@ end
     end
 end
 
+# checkvalid
+"""
+    checkvalid(x::LCMType)
 
-# Valid check
-@generated function check_valid(x::T) where T<:LCMType
+Check that `x` is a valid LCM type. For example, check that array lengths are correct.
+"""
+@generated function checkvalid(x::T) where T<:LCMType
     exprs = Expr[]
     for fieldname in fieldnames(T)
         F = fieldtype(T, fieldname)
-        F <: AbstractVector && push!(exprs, :(LCMCore.check_vec_length(x.$fieldname, x, LCMCore.dimensions(T, $(Val(fieldname)))...)))
+        F <: AbstractVector && push!(exprs, :(LCMCore.checkveclength(x.$fieldname, x, LCMCore.dimensions(T, $(Val(fieldname)))...)))
     end
     quote
         $(exprs...)
@@ -206,18 +201,18 @@ end
     end
 end
 
-@inline check_vec_length(vec::SVector, x::LCMType, dim::LCMDimension{Int}) = nothing
-@inline check_vec_length(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (length(vec) == getfield(x, dim.size) || throw(DimensionMismatch()))
-@inline function check_vec_length(vec::AbstractVector, x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...)
-    check_vec_length(vec, x, dimhead)
+@inline checkveclength(vec::SVector, x::LCMType, dim::LCMDimension{Int}) = nothing
+@inline checkveclength(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (length(vec) == getfield(x, dim.size) || throw(DimensionMismatch()))
+@inline function checkveclength(vec::AbstractVector, x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...)
+    checkveclength(vec, x, dimhead)
     for vi in vec
-        check_vec_length(vi, x, dimtail...)
+        checkveclength(vi, x, dimtail...)
     end
 end
 
 # Decoding
 function decode!(x::LCMType, io::IO)
-    check_fingerprint(io, typeof(x))
+    checkfingerprint(io, typeof(x))
     decodefield!(x, io)
 end
 
@@ -240,8 +235,8 @@ Base.@pure decode_in_place(::Type{<:LCMType}) = true
             else
                 x.$fieldname = decodefield(io, $F)
             end
-            # $(QuoteNode(fieldname)) ∈ size_fields(T) && resize!(x) # allocates!
-            any($(QuoteNode(fieldname)) .== size_fields(T)) && resize!(x)
+            # $(QuoteNode(fieldname)) ∈ sizefields(T) && resize!(x) # allocates!
+            any($(QuoteNode(fieldname)) .== sizefields(T)) && resize!(x)
         end
     end
     return quote
@@ -268,7 +263,7 @@ Base.@pure decode_in_place(::Type{<:Vector}) = true
 function decodefield!(x::Vector{T}, io::IO) where T
     @inbounds for i in eachindex(x)
         if decode_in_place(T)
-            isassigned(x, i) || (x[i] = default_value(T))
+            isassigned(x, i) || (x[i] = defaultval(T))
             decodefield!(x[i], io)
         else
             x[i] = decodefield(io, T)
@@ -293,7 +288,6 @@ end
     end
 end
 
-
 # Encoding
 """
     encode(io::IO, x::LCMType)
@@ -311,7 +305,7 @@ end
         encode_exprs[i] = :(encodefield(io, x.$fieldname))
     end
     quote
-        check_valid(x)
+        checkvalid(x)
         $(encode_exprs...)
         io
     end
@@ -330,7 +324,6 @@ function encodefield(io::IO, A::AbstractVector)
     end
 end
 
-
 # Sugar
 encode(data::Vector{UInt8}, x::LCMType) = encode(IOBuffer(data, false, true), x)
 encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(stream); take!(stream))
@@ -338,16 +331,15 @@ encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(s
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 
-
 # @lcmtypesetup macro and related functions
-function make_dimensions_method(::Type{T}, ::Type{<:SVector{N, <:Any}}, field::Symbol, axisnum::Int) where {T<:LCMType, N}
+function make_fixed_dimensions_method(::Type{T}, ::Type{<:SVector{N, <:Any}}, field::Symbol, axisnum::Int) where {T<:LCMType, N}
     let lcmdim = LCMCore.LCMDimension(N)
         LCMCore.dimensions(::Type{T}, ::Val{field}, ::Val{axisnum}) = lcmdim
     end
 end
 
 function make_fixed_dimensions_methods(::Type{T}, ::Type{F}, field::Symbol, axisnum::Int) where {T<:LCMType, V, F<:AbstractVector{V}}
-    F <: SVector && make_dimensions_method(T, F, field, axisnum)
+    F <: SVector && make_fixed_dimensions_method(T, F, field, axisnum)
     V <: AbstractVector && return make_fixed_dimensions_methods(T, V, field, axisnum + 1)
     axisnum
 end
@@ -363,20 +355,58 @@ function make_dimensions_methods(::Type{T}) where T<:LCMType
     end
 end
 
+"""
+    @lcmtypesetup(lcmtype, dimensioninfos...)
+
+Generate the following methods for a concrete LCMType subtype (say `MyType`):
+
+* `dimensions(x::MyType, ::Val{fieldsym})`, for all fields
+* `sizefields(::Type{MyType})`
+* `fingerprint(::Type{MyType})`
+
+The `lcmtype` argument should be the name of a concrete LCMType subtype.
+The `dimensioninfos` arguments can be used to define which fields determine
+the length of which variable-length vector fields. Each `dimensioninfos` element
+should have the form
+
+```julia
+(vecfieldname, depth) => sizefieldname
+```
+
+where `vecfieldname` is the name of a (possibly nested) `AbstractVector` field and
+`sizefieldname` is the name of the field containing the size. `depth` determines the
+'nesting depth' for which the size is specified.
+
+# Examples
+```julia
+mutable struct MyType <: LCMType
+    alength::Int32
+    c_inner_length::Int32
+    a::Vector{Float64}
+    b::SVector{3, Float32}
+    c::SVector{3, Vector{Int64}}
+end
+
+@lcmtypesetup(MyType,
+    (a, 1) => alength,
+    (c, 2) => c_inner_length
+)
+```
+"""
 macro lcmtypesetup(lcmt, dimensioninfos...)
     # LCMCore.dimensions methods for variable dimensions
-    sizefields = Symbol[]
+    sizefields = Set(Symbol[])
     vardimmethods = map(dimensioninfos) do dimensioninfo
         @assert dimensioninfo.head == :call
         @assert dimensioninfo.args[1] == :(=>)
         @assert dimensioninfo.args[2].head == :tuple
         @assert length(dimensioninfo.args[2].args) == 2
-        field, axis = dimensioninfo.args[2].args
-        dim = dimensioninfo.args[3]::Symbol
-        push!(sizefields, dim)
+        vecfieldname, depth = dimensioninfo.args[2].args
+        sizefieldname = dimensioninfo.args[3]::Symbol
+        push!(sizefields, sizefieldname)
         quote
-            let lcmdim = LCMCore.LCMDimension($(QuoteNode(dim)))
-                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(field))}, ::Val{$axis}) = lcmdim
+            let lcmdim = LCMCore.LCMDimension($(QuoteNode(sizefieldname)))
+                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(vecfieldname))}, ::Val{$depth}) = lcmdim
             end
         end
     end
@@ -384,16 +414,16 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
     # LCMCore.dimensions methods for constant dimensions, and a method that returns a tuple of LCMDimensions for each field
     dimmethods = :(LCMCore.make_dimensions_methods($lcmt))
 
-    # LCMCore.size_fields method
+    # LCMCore.sizefields method
     sizefieldsmethod = quote
-        let sizefieldtup = tuple($(map(QuoteNode, sizefields)...))
-            LCMCore.size_fields(::Type{$lcmt}) = sizefieldtup
+        let sizefieldtup = tuple($(map(QuoteNode, collect(sizefields))...))
+            LCMCore.sizefields(::Type{$lcmt}) = sizefieldtup
         end
     end
 
     # LCMCore.fingerprint method
     fingerprint = quote
-        let hash = reinterpret(Int64, LCMCore.compute_hash($lcmt, DataType[]))
+        let hash = reinterpret(Int64, LCMCore.computehash($lcmt, DataType[]))
             LCMCore.fingerprint(::Type{$lcmt}) = hash
         end
     end
