@@ -38,10 +38,14 @@ end
     test_encode_decode(lcm_test_type_1)
     test_encode_decode(lcm_test_type_2)
     test_encode_decode(lcm_test_type_3)
+    test_encode_decode(polynomial_t)
+    test_encode_decode(polynomial_matrix_t)
 
     # Check that decoding types without `String`s doesn't allocate
     test_in_place_decode_noalloc(lcm_test_type_1)
     test_in_place_decode_noalloc(lcm_test_type_2)
+    test_in_place_decode_noalloc(polynomial_t)
+    test_in_place_decode_noalloc(polynomial_matrix_t)
 
     # Mismatch between length field and length of corresponding vector
     bad = rand(lcm_test_type_1)
@@ -55,10 +59,8 @@ end
     @test_throws LCMCore.FingerprintException decode(badbytes, lcm_test_type_1)
 
     # Test against byte blobs that were encoded using pylcm
-    bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", "lcm_test_type_1_example_bytes"))
-    @test hard_coded_example(lcm_test_type_1) == decode(bytes, lcm_test_type_1)
-    bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", "lcm_test_type_2_example_bytes"))
-    @test hard_coded_example(lcm_test_type_2) == decode(bytes, lcm_test_type_2)
-    bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", "lcm_test_type_3_example_bytes"))
-    @test hard_coded_example(lcm_test_type_3) == decode(bytes, lcm_test_type_3)
+    for lcmt in [lcm_test_type_1, lcm_test_type_2, lcm_test_type_3, polynomial_t, polynomial_matrix_t]
+        bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", string(lcmt.name.name) * "_example_bytes"))
+        @test hard_coded_example(lcmt) == decode(bytes, lcmt)
+    end
 end

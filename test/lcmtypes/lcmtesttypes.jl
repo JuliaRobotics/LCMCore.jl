@@ -1,6 +1,6 @@
 module lcmtesttypes
 
-export lcm_test_type_1, lcm_test_type_2, lcm_test_type_3
+export lcm_test_type_1, lcm_test_type_2, lcm_test_type_3, polynomial_t, polynomial_matrix_t
 export hard_coded_example
 
 using LCMCore, StaticArrays
@@ -131,6 +131,68 @@ function hard_coded_example(::Type{lcm_test_type_3})
     ret.c = ["xyz", "wxy"]
     ret.d = 2.5
     ret
+end
+
+mutable struct polynomial_t <: LCMType
+    timestamp::Int64
+    num_coefficients::Int32
+    coefficients::Vector{Float64}
+end
+
+@lcmtypesetup(polynomial_t,
+    (coefficients, 1) => num_coefficients,
+)
+
+function Base.:(==)(x::polynomial_t, y::polynomial_t)
+    x.timestamp == y.timestamp || return false
+    x.num_coefficients == y.num_coefficients || return false
+    x.coefficients == y.coefficients || return false
+    true
+end
+
+function Base.rand(::Type{polynomial_t})
+    timestamp = rand(Int64)
+    num_coefficients = rand(Int32(0) : Int32(10))
+    coefficients = rand(num_coefficients)
+    polynomial_t(timestamp, num_coefficients, coefficients)
+end
+
+function hard_coded_example(::Type{polynomial_t})
+    polynomial_t(1234, 4, [5.0, 0.0, 1.0, 3.0])
+end
+
+
+mutable struct polynomial_matrix_t <: LCMType
+    timestamp::Int64
+    rows::Int32
+    cols::Int32
+    polynomials::Vector{Vector{polynomial_t}}
+end
+
+@lcmtypesetup(polynomial_matrix_t,
+    (polynomials, 1) => rows,
+    (polynomials, 2) => cols
+)
+
+function Base.:(==)(x::polynomial_matrix_t, y::polynomial_matrix_t)
+    x.timestamp == y.timestamp || return false
+    x.rows == y.rows || return false
+    x.cols == y.cols || return false
+    x.polynomials == y.polynomials || return false
+    true
+end
+
+function Base.rand(::Type{polynomial_matrix_t})
+    timestamp = rand(Int64)
+    rows = rand(Int32(0) : Int32(10))
+    cols = rand(Int32(0) : Int32(10))
+    polynomials = [[rand(polynomial_t) for col = 1 : cols] for row = 1 : rows]
+    polynomial_matrix_t(timestamp, rows, cols, polynomials)
+end
+
+function hard_coded_example(::Type{polynomial_matrix_t})
+    polynomials = [[polynomial_t(1234, 4, [5.0, 0.0, 1.0, 3.0])], [polynomial_t(1234, 4, [10.0, 0.0, 2.0, 6.0])]]
+    polynomial_matrix_t(1234, 2, 1, polynomials)
 end
 
 end # module
