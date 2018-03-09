@@ -158,7 +158,9 @@ end
 end
 
 function checkfingerprint(io::IO, ::Type{T}) where T<:LCMType
-    decodefield(io, Int64) == fingerprint(T) || throw(FingerprintException(T))
+    fp = fingerprint(T)
+    fpint = fp isa Int64 ? fp : ntoh(reinterpret(Int64, Vector(fp))[1]) # TODO: remove for next release; fingerprints are now Int64s
+    decodefield(io, Int64) == fpint || throw(FingerprintException(T))
 end
 
 # Resizing
@@ -193,13 +195,13 @@ end
     end
 end
 
-# checkvalid
+# check_valid
 """
-    checkvalid(x::LCMType)
+    check_valid(x::LCMType)
 
 Check that `x` is a valid LCM type. For example, check that array lengths are correct.
 """
-@generated function checkvalid(x::T) where T<:LCMType
+@generated function check_valid(x::T) where T<:LCMType
     exprs = Expr[]
     for fieldname in fieldnames(T)
         F = fieldtype(T, fieldname)
@@ -315,7 +317,7 @@ end
         encode_exprs[i] = :(encodefield(io, x.$fieldname))
     end
     quote
-        checkvalid(x)
+        check_valid(x)
         $(encode_exprs...)
         io
     end
@@ -447,3 +449,7 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
         $fingerprint
     end)
 end
+
+# Deprecations and transition methods
+Base.@deprecate size_fields(::Type{T}) where {T<:LCMType} sizefields(T)
+sizefields(::Type{T}) where {T} = size_fields(T)
