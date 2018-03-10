@@ -63,4 +63,17 @@ end
         bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", string(lcmt.name.name) * "_example_bytes"))
         @test hard_coded_example(lcmt) == decode(bytes, lcmt)
     end
+
+    # resize!
+    lcmt2 = lcm_test_type_2()
+    lcmt2.dlength = 5
+    lcmt2.f_inner_length = 2
+    resize!(lcmt2)
+    @test length(lcmt2.d) == 5
+    @test size(lcmt2.f) == (3, 2)
+    d = lcmt2.d
+    f = lcmt2.f
+    resize!(lcmt2)
+    @test d === lcmt2.d
+    @test f === lcmt2.f
 end
