@@ -55,12 +55,36 @@ const NetworkByteOrderEncoded = Union{Int8, Int16, Int32, Int64, Float32, Float6
 # Julia types that correspond to LCM primitive types
 const LCMPrimitive = Union{Int8, Int16, Int32, Int64, Float32, Float64, String, Bool, UInt8}
 
+# reversedimindices (for conversion from row-major to column-major and vice versa)
+struct ReverseDimIndices{C<:CartesianIndices}
+    revcartinds::C
+    length::Int
+    ReverseDimIndices(revcartinds::C) where {C<:CartesianIndices} = new{C}(revcartinds, length(revcartinds))
+end
+ReverseDimIndices(A::AbstractArray) = ReverseDimIndices(CartesianIndices(reverse(size(A))))
+
+Base.start(inds::ReverseDimIndices{N}) where {N} = 1
+function Base.next(inds::ReverseDimIndices{N}, state::Int) where N
+    ind = CartesianIndex(reverse(inds.revcartinds[state].I))
+    ind, state + 1
+end
+Base.done(inds::ReverseDimIndices, state::Int) = state > inds.length
+Base.length(inds::ReverseDimIndices) = inds.length
+
+reversedimindices(A::AbstractArray) = ReverseDimIndices(A)
+
+# reversedims (for StaticArrays)
+reversedims(A::StaticVector) = A
+reversedims(A::StaticMatrix) = transpose(A)
+# TODO: higher dimensions
+
 # Default values for all of the possible field types of an LCM type:
 defaultval(::Type{Bool}) = false
 defaultval(::Type{T}) where {T<:NetworkByteOrderEncoded} = zero(T)
 defaultval(::Type{String}) = ""
-defaultval(::Type{T}) where {T<:Vector} = T()
-defaultval(::Type{SV}) where {N, T, SV<:StaticVector{N, T}} = SV(ntuple(i -> defaultval(T), Val(N)))
+defaultval(::Type{Array{T, N}}) where {T, N} = Array{T, N}(ntuple(i -> 0, Val(N))...)
+defaultval(::Type{SA}) where {T, SA<:StaticArray{<:Any, T}} = _defaultval(SA, T, Length(SA))
+_defaultval(::Type{SA}, ::Type{T}, ::Length{L}) where {SA, T, L} = SA(ntuple(i -> defaultval(T), Val(L)))
 defaultval(::Type{T}) where {T<:LCMType} = T()
 
 # Generated default constructor for LCMType subtypes
@@ -104,7 +128,7 @@ hashupdate(v::UInt64, dim::T) where {T<:LCMDimension} = (v = hashupdate(v, dimen
 
 isprimitive(::Type{<:LCMType}) = false
 isprimitive(::Type{T}) where {T<:LCMPrimitive} = true
-isprimitive(::Type{<:AbstractVector{T}}) where {T} = isprimitive(T)
+isprimitive(::Type{<:AbstractArray{T}}) where {T} = isprimitive(T)
 
 lcmtypename(::Type{Int8}) = "int8_t"
 lcmtypename(::Type{Int16}) = "int16_t"
@@ -115,7 +139,7 @@ lcmtypename(::Type{Float64}) = "double"
 lcmtypename(::Type{String}) = "string"
 lcmtypename(::Type{Bool}) = "boolean"
 lcmtypename(::Type{UInt8}) = "byte"
-lcmtypename(::Type{<:AbstractVector{T}}) where {T} = lcmtypename(T)
+lcmtypename(::Type{<:AbstractArray{T}}) where {T} = lcmtypename(T)
 lcmtypename(::Type{T}) where {T<:LCMType} = string(T)
 
 # port of https://github.com/lcm-proj/lcm/blob/992959adfbda78a13a858a514636e7929f27ed16/lcmgen/lcmgen.c#L248-L282
@@ -137,9 +161,9 @@ function basehash(::Type{T}) where T<:LCMType
 end
 
 computehash(::Type{T}, parents::Vector{DataType}) where {T<:LCMPrimitive} = zero(UInt64)
-computehash(::Type{<:AbstractVector{T}}, parents::Vector{DataType}) where {T} = computehash(T, parents)
+computehash(::Type{<:AbstractArray{T}}, parents::Vector{DataType}) where {T} = computehash(T, parents)
 function computehash(::Type{T}, parents::Vector{DataType}) where T<:LCMType
-    T in parents && return UInt64(0)
+    T in parents && return zero(UInt64)
     hash = basehash(T)
     for field in fieldnames(T)
         F = fieldtype(T, field)
@@ -163,35 +187,37 @@ function checkfingerprint(io::IO, ::Type{T}) where T<:LCMType
     decodefield(io, Int64) == fpint || throw(FingerprintException(T))
 end
 
+# Size evaluation
+@inline evalsize(x::LCMType) = ()
+@inline evalsize(x::LCMType, dimhead::LCMDimension{Int}, dimtail...) = (dimhead.size, evalsize(x, dimtail...)...)
+@inline evalsize(x::LCMType, dimhead::LCMDimension{Symbol}, dimtail...) = (getfield(x, dimhead.size), evalsize(x, dimtail...)...)
+
+# @inline evalsize(x::LCMType) = ()
+# @inline evalsize(x::LCMType, dim::LCMDimension{Int}) = (dim.size, )
+# @inline evalsize(x::LCMType, dim::LCMDimension{Symbol}) = (getfield(x, dim.size), )
+# @inline evalsize(x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...) = (evalsize(x, dimhead)..., evalsize(x, dimtail...)...)
+
 # Resizing
 @generated function Base.resize!(x::T) where T<:LCMType
     exprs = Expr[]
     for fieldname in fieldnames(T)
         F = fieldtype(T, fieldname)
-        F <: AbstractVector && push!(exprs, :(LCMCore.resizevec!(x.$fieldname, x, LCMCore.dimensions(T, $(Val(fieldname)))...)))
+        if F <: Array
+            push!(exprs, quote
+                let newsize = evalsize(x, LCMCore.dimensions(T, $(Val(fieldname)))...)
+                    if newsize != size(x.$fieldname)
+                        x.$fieldname = $(F)(uninitialized, newsize...)
+                        @inbounds for i in eachindex(x.$fieldname)
+                            x.$fieldname[i] = defaultval(eltype($F))
+                        end
+                    end
+                end
+            end)
+        end
     end
     quote
         $(exprs...)
         return nothing
-    end
-end
-
-@inline resizevec!(vec::SVector, x::LCMType, dim::LCMDimension{Int}) = nothing
-@inline resizevec!(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (_resizevec!(vec, getfield(x, dim.size)); nothing)
-@inline function resizevec!(vec::AbstractVector, x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...)
-    resizevec!(vec, x, dimhead)
-    for vi in vec
-        resizevec!(vi, x, dimtail...)
-    end
-end
-
-@inline function _resizevec!(vec::Vector{T}, newsize::Integer) where T
-    # Note: separated from resizevec! to introduce a function barrier and
-    # achieve zero allocation despite the type-unstable `getfield` call.
-    oldsize = length(vec)
-    resize!(vec, newsize)
-    for i in oldsize + 1 : newsize
-        @inbounds vec[i] = defaultval(T)
     end
 end
 
@@ -199,26 +225,23 @@ end
 """
     check_valid(x::LCMType)
 
-Check that `x` is a valid LCM type. For example, check that array lengths are correct.
+Check that the array sizes of `x` match their corresponding size fields.
 """
 @generated function check_valid(x::T) where T<:LCMType
     exprs = Expr[]
     for fieldname in fieldnames(T)
         F = fieldtype(T, fieldname)
-        F <: AbstractVector && push!(exprs, :(LCMCore.checkveclength(x.$fieldname, x, LCMCore.dimensions(T, $(Val(fieldname)))...)))
+        if F <: Array
+            push!(exprs, quote
+                if size(x.$fieldname) != evalsize(x, LCMCore.dimensions(T, $(Val(fieldname)))...)
+                    throw(DimensionMismatch())
+                end
+            end)
+        end
     end
     quote
         $(exprs...)
         return nothing
-    end
-end
-
-@inline checkveclength(vec::SVector, x::LCMType, dim::LCMDimension{Int}) = nothing
-@inline checkveclength(vec::Vector, x::LCMType, dim::LCMDimension{Symbol}) = (length(vec) == getfield(x, dim.size) || throw(DimensionMismatch()))
-@inline function checkveclength(vec::AbstractVector, x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...)
-    checkveclength(vec, x, dimhead)
-    for vi in vec
-        checkveclength(vi, x, dimtail...)
     end
 end
 
@@ -236,7 +259,7 @@ Specify whether type `T` should be decoded in place, i.e. whether to use a
 """
 function decode_in_place end
 
-Base.@pure decode_in_place(::Type{<:LCMType}) = true
+decode_in_place(::Type{<:LCMType}) = true
 @generated function decodefield!(x::T, io::IO) where T<:LCMType
     field_assignments = Vector{Expr}(fieldcount(x))
     for (i, fieldname) in enumerate(fieldnames(x))
@@ -257,13 +280,13 @@ Base.@pure decode_in_place(::Type{<:LCMType}) = true
     end
 end
 
-Base.@pure decode_in_place(::Type{Bool}) = false
+decode_in_place(::Type{Bool}) = false
 decodefield(io::IO, ::Type{Bool}) = read(io, UInt8) == 0x01
 
-Base.@pure decode_in_place(::Type{<:NetworkByteOrderEncoded}) = false
+decode_in_place(::Type{<:NetworkByteOrderEncoded}) = false
 decodefield(io::IO, ::Type{T}) where {T<:NetworkByteOrderEncoded} = ntoh(read(io, T))
 
-Base.@pure decode_in_place(::Type{String}) = false
+decode_in_place(::Type{String}) = false
 function decodefield(io::IO, ::Type{String})
     len = ntoh(read(io, UInt32))
     ret = String(read(io, len - 1))
@@ -271,32 +294,35 @@ function decodefield(io::IO, ::Type{String})
     ret
 end
 
-Base.@pure decode_in_place(::Type{<:Vector}) = true
-function decodefield!(x::Vector{T}, io::IO) where T
-    @inbounds for i in eachindex(x)
-        if decode_in_place(T)
-            isassigned(x, i) || (x[i] = defaultval(T))
+decode_in_place(::Type{<:Array}) = true
+function decodefield!(x::Array{T}, io::IO) where T
+    if decode_in_place(T)
+        @inbounds for i in reversedimindices(x)
             decodefield!(x[i], io)
-        else
+        end
+    else
+        @inbounds for i in reversedimindices(x)
             x[i] = decodefield(io, T)
         end
     end
     x
 end
 
-Base.@pure decode_in_place(::Type{SV}) where {SV<:StaticVector} = decode_in_place(eltype(SV))
-function decodefield!(x::StaticVector, io::IO)
-    decode_in_place(eltype(x)) || error()
-    @inbounds for i in eachindex(x)
+decode_in_place(::Type{SA}) where {T, SA<:StaticArray{<:Any, T}} = decode_in_place(T)
+function decodefield!(x::StaticArray{<:Any, T}, io::IO) where T
+    decode_in_place(T) || error()
+    @inbounds for i in reversedimindices(x)
         decodefield!(x[i], io)
     end
     x
 end
-@generated function decodefield(io::IO, ::Type{SV}) where {N, T, SV<:StaticVector{N, T}}
-    constructor_arg_exprs = [:(decodefield(io, T)) for i = 1 : N]
-    return quote
-        decode_in_place(T) && error()
-        SV(tuple($(constructor_arg_exprs...)))
+@inline decodefield(io::IO, ::Type{SA}) where {SA<:StaticArray} = _decodefield(io, Size(SA), SA)
+@generated function _decodefield(io::IO, ::Size{s}, ::Type{SA}) where {s, T, SA<:StaticArray{<:Any, T}}
+    decode_in_place(T) && error()
+    exprs = [:(decodefield(io, T)) for i = 1 : prod(s)]
+    quote
+        Base.@_inline_meta
+        reversedims($SA(tuple($(exprs...))))
     end
 end
 
@@ -330,9 +356,9 @@ function encodefield(io::IO, x::String)
     write(io, x)
     write(io, UInt8(0))
 end
-function encodefield(io::IO, A::AbstractVector)
-    for x in A
-        encodefield(io, x)
+function encodefield(io::IO, A::AbstractArray)
+    for i in reversedimindices(A)
+        encodefield(io, A[i])
     end
 end
 
@@ -344,31 +370,6 @@ decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 
 # @lcmtypesetup macro and related functions
-function make_fixed_dimensions_method(::Type{T}, ::Type{<:SVector{N, <:Any}}, field::Symbol, axisnum::Int) where {T<:LCMType, N}
-    let lcmdim = LCMCore.LCMDimension(N)
-        LCMCore.dimensions(::Type{T}, ::Val{field}, ::Val{axisnum}) = lcmdim
-    end
-end
-
-function make_fixed_dimensions_methods(::Type{T}, ::Type{F}, field::Symbol, axisnum::Int) where {T<:LCMType, V, F<:AbstractVector{V}}
-    F <: SVector && make_fixed_dimensions_method(T, F, field, axisnum)
-    V <: AbstractVector && return make_fixed_dimensions_methods(T, V, field, axisnum + 1)
-    axisnum
-end
-
-function make_dimensions_methods(::Type{T}) where T<:LCMType
-    for field in fieldnames(T)
-        F = fieldtype(T, field)
-        numaxes = F <: AbstractVector ? make_fixed_dimensions_methods(T, F, field, 1) : 0
-        fieldval = Val(field)
-        # Need to use invokelatest here, as the methods just created in `make_fixed_dimensions_methods`
-        # would otherwise be too new to be visible here.
-        let dimtuple = ntuple(i -> Base.invokelatest(LCMCore.dimensions, T, fieldval, Val(i)), numaxes)
-            LCMCore.dimensions(::Type{T}, ::Val{field}) = dimtuple
-        end
-    end
-end
-
 """
     @lcmtypesetup(lcmtype, dimensioninfos...)
 
@@ -380,16 +381,16 @@ Generate the following methods for a concrete LCMType subtype (say `MyType`):
 
 The `lcmtype` argument should be the name of a concrete LCMType subtype.
 The `dimensioninfos` arguments can be used to define which fields determine
-the length of which variable-length vector fields. Each `dimensioninfos` element
+the size of which variable-size array fields. Each `dimensioninfos` element
 should have the form
 
 ```julia
-(vecfieldname, depth) => sizefieldname
+arrayfieldname => (size1, size2, ...)
 ```
 
-where `vecfieldname` is the name of a (possibly nested) `AbstractVector` field and
-`sizefieldname` is the name of the field containing the size. `depth` determines the
-'nesting depth' for which the size is specified.
+where `arrayfieldname` is the name of an `Array` field and `size1`, `size2`
+etc. are the dimensions of the `Array`, where both integers and field names
+that come *before* `arrayfieldname` in the type definition may be used.
 
 # Examples
 ```julia
@@ -398,12 +399,12 @@ mutable struct MyType <: LCMType
     c_inner_length::Int32
     a::Vector{Float64}
     b::SVector{3, Float32}
-    c::SVector{3, Vector{Int64}}
+    c::Matrix{Int64}
 end
 
 @lcmtypesetup(MyType,
-    (a, 1) => alength,
-    (c, 2) => c_inner_length
+    a => (alength, ),
+    c => (3, c_inner_length)
 )
 ```
 """
@@ -413,20 +414,21 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
     vardimmethods = map(dimensioninfos) do dimensioninfo
         @assert dimensioninfo.head == :call
         @assert dimensioninfo.args[1] == :(=>)
-        @assert dimensioninfo.args[2].head == :tuple
-        @assert length(dimensioninfo.args[2].args) == 2
-        vecfieldname, depth = dimensioninfo.args[2].args
-        sizefieldname = dimensioninfo.args[3]::Symbol
-        push!(sizefields, sizefieldname)
+        vecfieldname = dimensioninfo.args[2]::Symbol
+        @assert dimensioninfo.args[3].head == :tuple
+        dims = dimensioninfo.args[3].args
+        for dim in dims
+            dim isa Symbol && push!(sizefields, dim)
+        end
         quote
-            let lcmdim = LCMCore.LCMDimension($(QuoteNode(sizefieldname)))
-                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(vecfieldname))}, ::Val{$depth}) = lcmdim
+            let dimtuple = tuple($(LCMCore.LCMDimension.(dims)...))
+                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(vecfieldname))}) = dimtuple
             end
         end
     end
 
-    # LCMCore.dimensions methods for constant dimensions, and a method that returns a tuple of LCMDimensions for each field
-    dimmethods = :(LCMCore.make_dimensions_methods($lcmt))
+    # LCMCore.dimensions methods for constant dimensions
+    dimmethods = :(LCMCore.make_fixed_dimensions_methods($lcmt))
 
     # LCMCore.sizefields method
     sizefieldsmethod = quote
@@ -448,6 +450,21 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
         $sizefieldsmethod
         $fingerprint
     end)
+end
+
+function make_fixed_dimensions_methods(::Type{T}) where T<:LCMType
+    for field in fieldnames(T)
+        F = fieldtype(T, field)
+        if F <: Array
+            # skip
+        elseif F <: StaticArray
+            let dimtuple = LCMCore.LCMDimension.(size(F))
+                LCMCore.dimensions(::Type{T}, ::Val{field}) = dimtuple
+            end
+        else
+            LCMCore.dimensions(::Type{T}, ::Val{field}) = ()
+        end
+    end
 end
 
 # Deprecations and transition methods
