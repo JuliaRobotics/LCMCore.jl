@@ -204,14 +204,7 @@ end
         F = fieldtype(T, fieldname)
         if F <: Array
             push!(exprs, quote
-                let newsize = evalsize(x, LCMCore.dimensions(T, $(Val(fieldname)))...)
-                    if newsize != size(x.$fieldname)
-                        x.$fieldname = $(F)(uninitialized, newsize...)
-                        @inbounds for i in eachindex(x.$fieldname)
-                            x.$fieldname[i] = defaultval(eltype($F))
-                        end
-                    end
-                end
+                resizearrayfield!(x, $(Val(fieldname)), $F)
             end)
         end
     end
@@ -219,6 +212,22 @@ end
         $(exprs...)
         return nothing
     end
+end
+
+@inline function resizearrayfield!(x::T, fieldnameval::Val{fieldname}, ::Type{F}) where {fieldname, T<:LCMType, F}
+    newsize = evalsize(x, dimensions(T, fieldnameval)...)
+    if newsize != size(getfield(x, fieldname))
+        _resizearrayfield!(x, fieldnameval, F, newsize)
+    end
+    nothing
+end
+
+@noinline function _resizearrayfield!(x::LCMType, ::Val{fieldname}, ::Type{Array{T, N}}, newsize::Tuple) where {fieldname, T, N}
+    A = Array{T, N}(uninitialized, newsize...)
+    @inbounds for i in eachindex(A)
+        A[i] = defaultval(T)
+    end
+    setfield!(x, fieldname, A)
 end
 
 # check_valid
