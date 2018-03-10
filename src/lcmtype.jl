@@ -55,37 +55,14 @@ const NetworkByteOrderEncoded = Union{Int8, Int16, Int32, Int64, Float32, Float6
 # Julia types that correspond to LCM primitive types
 const LCMPrimitive = Union{Int8, Int16, Int32, Int64, Float32, Float64, String, Bool, UInt8}
 
-# reversedimindices (for conversion from row-major to column-major and vice versa)
-struct ReverseDimIndices{C<:CartesianIndices}
-    revcartinds::C
-    length::Int
-    ReverseDimIndices(revcartinds::C) where {C<:CartesianIndices} = new{C}(revcartinds, length(revcartinds))
-end
-ReverseDimIndices(A::AbstractArray) = ReverseDimIndices(CartesianIndices(reverse(size(A))))
-
-Base.start(inds::ReverseDimIndices{N}) where {N} = 1
-function Base.next(inds::ReverseDimIndices{N}, state::Int) where N
-    ind = CartesianIndex(reverse(inds.revcartinds[state].I))
-    ind, state + 1
-end
-Base.done(inds::ReverseDimIndices, state::Int) = state > inds.length
-Base.length(inds::ReverseDimIndices) = inds.length
-
-reversedimindices(A::AbstractArray) = ReverseDimIndices(A)
-
-# reversedims (for StaticArrays)
-reversedims(A::StaticVector) = A
-reversedims(A::StaticMatrix) = transpose(A)
-# TODO: higher dimensions
-
 # Default values for all of the possible field types of an LCM type:
+defaultval(::Type{T}) where {T<:LCMType} = T()
 defaultval(::Type{Bool}) = false
 defaultval(::Type{T}) where {T<:NetworkByteOrderEncoded} = zero(T)
 defaultval(::Type{String}) = ""
 defaultval(::Type{Array{T, N}}) where {T, N} = Array{T, N}(ntuple(i -> 0, Val(N))...)
 defaultval(::Type{SA}) where {T, SA<:StaticArray{<:Any, T}} = _defaultval(SA, T, Length(SA))
 _defaultval(::Type{SA}, ::Type{T}, ::Length{L}) where {SA, T, L} = SA(ntuple(i -> defaultval(T), Val(L)))
-defaultval(::Type{T}) where {T<:LCMType} = T()
 
 # Generated default constructor for LCMType subtypes
 @generated function (::Type{T})() where T<:LCMType
@@ -191,11 +168,6 @@ end
 @inline evalsize(x::LCMType) = ()
 @inline evalsize(x::LCMType, dimhead::LCMDimension{Int}, dimtail...) = (dimhead.size, evalsize(x, dimtail...)...)
 @inline evalsize(x::LCMType, dimhead::LCMDimension{Symbol}, dimtail...) = (getfield(x, dimhead.size), evalsize(x, dimtail...)...)
-
-# @inline evalsize(x::LCMType) = ()
-# @inline evalsize(x::LCMType, dim::LCMDimension{Int}) = (dim.size, )
-# @inline evalsize(x::LCMType, dim::LCMDimension{Symbol}) = (getfield(x, dim.size), )
-# @inline evalsize(x::LCMType, dimhead::LCMDimension, dimtail::LCMDimension...) = (evalsize(x, dimhead)..., evalsize(x, dimtail...)...)
 
 # Resizing
 @generated function Base.resize!(x::T) where T<:LCMType

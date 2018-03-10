@@ -35,6 +35,7 @@ export LCM,
        @lcmtypesetup
 
 
+include("util.jl")
 include("core.jl")
 include("lcmtype.jl")
 include("readlog.jl")
