@@ -4,4 +4,4 @@ BinDeps 0.4.0
 CMakeWrapper 0.0.1
 Compat 0.27
 StaticArrays 0.5
-BufferedStreams 0.2
+BufferedStreams 0.4
