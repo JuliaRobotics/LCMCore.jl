@@ -23,9 +23,6 @@ export LCM,
        encode,
        decode,
        decode!,
-       size_fields, # deprecated
-       check_valid, # deprecated
-       fingerprint, # will soon no longer be exported
        subscribe,
        unsubscribe,
        handle,

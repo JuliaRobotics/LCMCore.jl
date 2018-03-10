@@ -18,7 +18,6 @@ Any size fields must come **before** the `Vector` fields to which they correspon
 The following methods must be defined for a concrete subtype of `LCMType` (say `MyType`):
 
 * `dimensions(x::MyType, ::Val{fieldsym})`
-* `sizefields(::Type{MyType})`
 * `fingerprint(::Type{MyType})`
 
 Note that the `@lcmtypesetup` macro can be used to generate these methods automatically.
@@ -34,13 +33,6 @@ abstract type LCMType end
 Return a tuple of LCMDimensions describing the size of `getfield(x, fieldsym)`.
 """
 function dimensions end
-
-"""
-    sizefields(x::Type{T}) where T<:LCMType
-
-Returns a tuple of `Symbol`s corresponding to the fields of `T` that represent vector dimensions.
-"""
-function sizefields end
 
 """
     fingerprint(::Type{T}) where T<:LCMType
@@ -74,26 +66,26 @@ end
 abstract type LCMDimension end
 
 struct LCMDimensionVar{T} <: LCMDimension end
-(::Type{LCMDimensionVar})(fieldname::Symbol) = (Base.@_pure_meta; LCMDimensionVar{fieldname}())
+LCMDimensionVar(fieldname::Symbol) = LCMDimensionVar{fieldname}()
 sizestring(::LCMDimensionVar{T}) where {T} = string(T)
 
 struct LCMDimensionConst{T} <: LCMDimension end
-(::Type{LCMDimensionConst})(constsize::Int) = (Base.@_pure_meta; LCMDimensionConst{constsize}())
+LCMDimensionConst(constsize::Integer) = LCMDimensionConst{Int(constsize)}()
 sizestring(::LCMDimensionConst{T}) where {T} = string(T)
 
 @enum DimensionMode LCM_CONST LCM_VAR
 dimensionmode(::Type{<:LCMDimensionVar}) = LCM_VAR
 dimensionmode(::Type{<:LCMDimensionConst}) = LCM_CONST
 
-Base.@pure makedim(fieldname::Symbol) = LCMDimensionVar(fieldname)
-Base.@pure makedim(constsize::Int) = LCMDimensionConst(constsize)
+makedim(fieldname::Symbol) = LCMDimensionVar(fieldname)
+makedim(constsize::Int) = LCMDimensionConst(constsize)
 
 @inline evaldims(x::LCMType) = ()
 @inline function evaldims(x::LCMType, dimhead::LCMDimensionConst{constsize}, dimtail::LCMDimension...) where {constsize}
-    (constsize, evaldims(x, dimtail...)...)
+    (Int(constsize), evaldims(x, dimtail...)...)
 end
 @inline function evaldims(x::LCMType, dimhead::LCMDimensionVar{fieldname}, dimtail::LCMDimension...) where {fieldname}
-    (getfield(x, fieldname), evaldims(x, dimtail...)...)
+    (Int(getfield(x, fieldname)), evaldims(x, dimtail...)...)
 end
 
 # Hash computation
@@ -202,20 +194,17 @@ end
     end
 end
 
-@inline function resizearrayfield!(x::T, fieldnameval::Val{fieldname}, ::Type{F}) where {fieldname, T<:LCMType, F}
-    newsize = evaldims(x, dimensions(T, fieldnameval)...)
-    if newsize != size(getfield(x, fieldname))
-        setfield!(x, fieldname, newarray(x, F, newsize))
+@generated function resizearrayfield!(x::T, ::Val{fieldname}, ::Type{Array{S, N}}) where {T<:LCMType, fieldname, S, N}
+    quote
+        Base.@_inline_meta
+        newsize = evaldims(x, dimensions(T, $(Val(fieldname)))...)
+        if newsize !== size(x.$fieldname)
+            x.$fieldname = Array{S, N}(uninitialized, newsize...)
+            @inbounds for i in eachindex(x.$fieldname)
+                x.$fieldname[i] = defaultval(S)
+            end
+        end
     end
-    nothing
-end
-
-@noinline function newarray(x::LCMType, ::Type{Array{T, N}}, sz::Tuple) where {T, N}
-    A = Array{T, N}(uninitialized, sz...)
-    @inbounds for i in eachindex(A)
-        A[i] = defaultval(T)
-    end
-    A
 end
 
 # check_valid
@@ -262,13 +251,12 @@ decode_in_place(::Type{<:LCMType}) = true
     for (i, fieldname) in enumerate(fieldnames(x))
         F = fieldtype(x, fieldname)
         field_assignments[i] = quote
+            $F <: Array && resizearrayfield!(x, $(Val(fieldname)), $F)
             if decode_in_place($F)
                 decodefield!(x.$fieldname, io)
             else
                 x.$fieldname = decodefield(io, $F)
             end
-            # $(QuoteNode(fieldname)) ∈ sizefields(T) && resize!(x) # allocates!
-            any($(QuoteNode(fieldname)) .== sizefields(T)) && resize!(x)
         end
     end
     return quote
@@ -373,7 +361,6 @@ decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 Generate the following methods for a concrete LCMType subtype (say `MyType`):
 
 * `dimensions(x::MyType, ::Val{fieldsym})`, for all fields
-* `sizefields(::Type{MyType})`
 * `fingerprint(::Type{MyType})`
 
 The `lcmtype` argument should be the name of a concrete LCMType subtype.
@@ -407,16 +394,12 @@ end
 """
 macro lcmtypesetup(lcmt, dimensioninfos...)
     # LCMCore.dimensions methods for variable dimensions
-    sizefields = Set(Symbol[])
     vardimmethods = map(dimensioninfos) do dimensioninfo
         @assert dimensioninfo.head == :call
         @assert dimensioninfo.args[1] == :(=>)
         vecfieldname = dimensioninfo.args[2]::Symbol
         @assert dimensioninfo.args[3].head == :tuple
         dims = dimensioninfo.args[3].args
-        for dim in dims
-            dim isa Symbol && push!(sizefields, dim)
-        end
         quote
             let dimtuple = tuple($(LCMCore.makedim.(dims)...))
                 LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(vecfieldname))}) = dimtuple
@@ -425,14 +408,7 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
     end
 
     # LCMCore.dimensions methods for constant dimensions
-    dimmethods = :(LCMCore.make_fixed_dimensions_methods($lcmt))
-
-    # LCMCore.sizefields method
-    sizefieldsmethod = quote
-        let sizefieldtup = tuple($(map(QuoteNode, collect(sizefields))...))
-            LCMCore.sizefields(::Type{$lcmt}) = sizefieldtup
-        end
-    end
+    makeconstdimmethods = :(LCMCore.make_fixed_dimensions_methods($lcmt))
 
     # LCMCore.fingerprint method
     fingerprint = quote
@@ -443,8 +419,7 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
 
     esc(quote
         $(vardimmethods...)
-        $dimmethods
-        $sizefieldsmethod
+        $makeconstdimmethods
         $fingerprint
     end)
 end
@@ -463,7 +438,3 @@ function make_fixed_dimensions_methods(::Type{T}) where T<:LCMType
         end
     end
 end
-
-# Deprecations and transition methods
-Base.@deprecate size_fields(::Type{T}) where {T<:LCMType} sizefields(T)
-sizefields(::Type{T}) where {T} = size_fields(T)
