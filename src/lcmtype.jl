@@ -71,12 +71,30 @@ _defaultval(::Type{SA}, ::Type{T}, ::Length{L}) where {SA, T, L} = SA(ntuple(i -
 end
 
 # Field dimension information
+abstract type LCMDimension end
+
+struct LCMDimensionVar{T} <: LCMDimension end
+(::Type{LCMDimensionVar})(fieldname::Symbol) = (Base.@_pure_meta; LCMDimensionVar{fieldname}())
+sizestring(::LCMDimensionVar{T}) where {T} = string(T)
+
+struct LCMDimensionConst{T} <: LCMDimension end
+(::Type{LCMDimensionConst})(constsize::Int) = (Base.@_pure_meta; LCMDimensionConst{constsize}())
+sizestring(::LCMDimensionConst{T}) where {T} = string(T)
+
 @enum DimensionMode LCM_CONST LCM_VAR
-struct LCMDimension{S <: Union{Symbol, Int}}
-    size::S # either a field name, or the size of a statically-sized field
+dimensionmode(::Type{<:LCMDimensionVar}) = LCM_VAR
+dimensionmode(::Type{<:LCMDimensionConst}) = LCM_CONST
+
+Base.@pure makedim(fieldname::Symbol) = LCMDimensionVar(fieldname)
+Base.@pure makedim(constsize::Int) = LCMDimensionConst(constsize)
+
+@inline evaldims(x::LCMType) = ()
+@inline function evaldims(x::LCMType, dimhead::LCMDimensionConst{constsize}, dimtail::LCMDimension...) where {constsize}
+    (constsize, evaldims(x, dimtail...)...)
 end
-dimensionmode(::Type{LCMDimension{Symbol}}) = LCM_VAR
-dimensionmode(::Type{LCMDimension{Int}}) = LCM_CONST
+@inline function evaldims(x::LCMType, dimhead::LCMDimensionVar{fieldname}, dimtail::LCMDimension...) where {fieldname}
+    (getfield(x, fieldname), evaldims(x, dimtail...)...)
+end
 
 # Hash computation
 # Port of https://github.com/ZeroCM/zcm/blob/e9c7bfc401ea15aa64291507da37d1163e5506c0/gen/ZCMGen.cpp#L73-L94
@@ -101,7 +119,10 @@ end
 
 hashupdate(v::UInt64, sym::Symbol) = hashupdate(v, string(sym))
 hashupdate(v::UInt64, mode::DimensionMode) = hashupdate(v, Cchar(mode))
-hashupdate(v::UInt64, dim::T) where {T<:LCMDimension} = (v = hashupdate(v, dimensionmode(T)); hashupdate(v, string(dim.size)))
+function hashupdate(v::UInt64, dim::T) where {T<:LCMDimension}
+    v = hashupdate(v, dimensionmode(T))
+    hashupdate(v, sizestring(dim))
+end
 
 isprimitive(::Type{<:LCMType}) = false
 isprimitive(::Type{T}) where {T<:LCMPrimitive} = true
@@ -164,11 +185,6 @@ function checkfingerprint(io::IO, ::Type{T}) where T<:LCMType
     decodefield(io, Int64) == fpint || throw(FingerprintException(T))
 end
 
-# Size evaluation
-@inline evalsize(x::LCMType) = ()
-@inline evalsize(x::LCMType, dimhead::LCMDimension{Int}, dimtail...) = (dimhead.size, evalsize(x, dimtail...)...)
-@inline evalsize(x::LCMType, dimhead::LCMDimension{Symbol}, dimtail...) = (getfield(x, dimhead.size), evalsize(x, dimtail...)...)
-
 # Resizing
 @generated function Base.resize!(x::T) where T<:LCMType
     exprs = Expr[]
@@ -187,19 +203,19 @@ end
 end
 
 @inline function resizearrayfield!(x::T, fieldnameval::Val{fieldname}, ::Type{F}) where {fieldname, T<:LCMType, F}
-    newsize = evalsize(x, dimensions(T, fieldnameval)...)
+    newsize = evaldims(x, dimensions(T, fieldnameval)...)
     if newsize != size(getfield(x, fieldname))
-        _resizearrayfield!(x, fieldnameval, F, newsize)
+        setfield!(x, fieldname, newarray(x, F, newsize))
     end
     nothing
 end
 
-@noinline function _resizearrayfield!(x::LCMType, ::Val{fieldname}, ::Type{Array{T, N}}, newsize::Tuple) where {fieldname, T, N}
-    A = Array{T, N}(uninitialized, newsize...)
+@noinline function newarray(x::LCMType, ::Type{Array{T, N}}, sz::Tuple) where {T, N}
+    A = Array{T, N}(uninitialized, sz...)
     @inbounds for i in eachindex(A)
         A[i] = defaultval(T)
     end
-    setfield!(x, fieldname, A)
+    A
 end
 
 # check_valid
@@ -214,7 +230,7 @@ Check that the array sizes of `x` match their corresponding size fields.
         F = fieldtype(T, fieldname)
         if F <: Array
             push!(exprs, quote
-                if size(x.$fieldname) != evalsize(x, LCMCore.dimensions(T, $(Val(fieldname)))...)
+                if size(x.$fieldname) != evaldims(x, LCMCore.dimensions(T, $(Val(fieldname)))...)
                     throw(DimensionMismatch())
                 end
             end)
@@ -402,7 +418,7 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
             dim isa Symbol && push!(sizefields, dim)
         end
         quote
-            let dimtuple = tuple($(LCMCore.LCMDimension.(dims)...))
+            let dimtuple = tuple($(LCMCore.makedim.(dims)...))
                 LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(vecfieldname))}) = dimtuple
             end
         end
@@ -439,7 +455,7 @@ function make_fixed_dimensions_methods(::Type{T}) where T<:LCMType
         if F <: Array
             # skip
         elseif F <: StaticArray
-            let dimtuple = LCMCore.LCMDimension.(size(F))
+            let dimtuple = LCMCore.makedim.(size(F))
                 LCMCore.dimensions(::Type{T}, ::Val{field}) = dimtuple
             end
         else
