@@ -37,7 +37,7 @@ function dimensions end
 """
     fingerprint(::Type{T}) where T<:LCMType
 
-Return the fingerprint of LCM type `T` as an `SVector{8, UInt8}`.
+Return the fingerprint of LCM type `T` as an Int64 (exactly 8 bytes).
 """
 function fingerprint end
 
