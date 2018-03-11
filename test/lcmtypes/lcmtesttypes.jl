@@ -13,7 +13,7 @@ mutable struct lcm_test_type_1 <: LCMType
 end
 
 @lcmtypesetup(lcm_test_type_1,
-    (b, 1) => blength
+    b => (blength, )
 )
 
 function Base.:(==)(x::lcm_test_type_1, y::lcm_test_type_1)
@@ -46,12 +46,12 @@ mutable struct lcm_test_type_2 <: LCMType
     c::lcm_test_type_1
     d::Vector{lcm_test_type_1}
     e::SVector{3, lcm_test_type_1}
-    f::SVector{3, Vector{Int64}}
+    f::Matrix{Int64}
 end
 
 @lcmtypesetup(lcm_test_type_2,
-    (d, 1) => dlength,
-    (f, 2) => f_inner_length
+    d => (dlength, ),
+    f => (3, f_inner_length)
 )
 
 function Base.:(==)(x::lcm_test_type_2, y::lcm_test_type_2)
@@ -74,7 +74,7 @@ function Base.rand(::Type{lcm_test_type_2})
     c = rand(lcm_test_type_1)
     d = [rand(lcm_test_type_1) for i = 1 : dlength]
     e = SVector{3}([rand(lcm_test_type_1) for i = 1 : 3])
-    f = SVector{3}([rand(Int64, f_inner_length) for i = 1 : 3])
+    f = rand(Int64, 3, f_inner_length)
     lcm_test_type_2(dlength, f_inner_length, a, b, c, d, e, f)
 end
 
@@ -89,7 +89,7 @@ function hard_coded_example(::Type{lcm_test_type_2})
     ret.d[1].a = 2
     ret.e = [hard_coded_example(lcm_test_type_1), hard_coded_example(lcm_test_type_1), hard_coded_example(lcm_test_type_1)]
     ret.e[3].c = [5, 3, 8]
-    ret.f = [[1, 2], [3, 4], [5, 7]]
+    ret.f = [1 2; 3 4; 5 7]
     ret
 end
 
@@ -102,7 +102,7 @@ mutable struct lcm_test_type_3 <: LCMType
 end
 
 @lcmtypesetup(lcm_test_type_3,
-    (b, 1) => blength
+    b => (blength, )
 )
 
 function Base.:(==)(x::lcm_test_type_3, y::lcm_test_type_3)
@@ -140,7 +140,7 @@ mutable struct polynomial_t <: LCMType
 end
 
 @lcmtypesetup(polynomial_t,
-    (coefficients, 1) => num_coefficients,
+    coefficients => (num_coefficients, )
 )
 
 function Base.:(==)(x::polynomial_t, y::polynomial_t)
@@ -166,12 +166,11 @@ mutable struct polynomial_matrix_t <: LCMType
     timestamp::Int64
     rows::Int32
     cols::Int32
-    polynomials::Vector{Vector{polynomial_t}}
+    polynomials::Matrix{polynomial_t}
 end
 
 @lcmtypesetup(polynomial_matrix_t,
-    (polynomials, 1) => rows,
-    (polynomials, 2) => cols
+    polynomials => (rows, cols)
 )
 
 function Base.:(==)(x::polynomial_matrix_t, y::polynomial_matrix_t)
@@ -186,12 +185,14 @@ function Base.rand(::Type{polynomial_matrix_t})
     timestamp = rand(Int64)
     rows = rand(Int32(0) : Int32(10))
     cols = rand(Int32(0) : Int32(10))
-    polynomials = [[rand(polynomial_t) for col = 1 : cols] for row = 1 : rows]
+    polynomials = [rand(polynomial_t) for row = 1 : rows, col = 1 : cols]
     polynomial_matrix_t(timestamp, rows, cols, polynomials)
 end
 
 function hard_coded_example(::Type{polynomial_matrix_t})
-    polynomials = [[polynomial_t(1234, 4, [5.0, 0.0, 1.0, 3.0])], [polynomial_t(1234, 4, [10.0, 0.0, 2.0, 6.0])]]
+    polynomials = Matrix{polynomial_t}(2, 1)
+    polynomials[1] = polynomial_t(1234, 4, [5.0, 0.0, 1.0, 3.0])
+    polynomials[2] = polynomial_t(1234, 4, [10.0, 0.0, 2.0, 6.0])
     polynomial_matrix_t(1234, 2, 1, polynomials)
 end
 
