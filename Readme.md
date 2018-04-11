@@ -121,7 +121,7 @@ LCM log files can also be read directly, without the UDP multicasting events.
 Events are read from file one at a time and use a similar API as the UDP traffic interface.
 ```julia
 function callback(channel, msgdata)
-  msg = covert(MsgType, msgdata) # decode
+  msg = decode(MsgType, msgdata) # slower, fresh memory allocation -- consider typedcallback(...) with decode! instead
   # ...
   nothing
 end
