@@ -108,16 +108,21 @@ end
     fd = filedescriptor(lcm)
     publish(lcm, channel, UInt8[1,2,3])
     publish(lcm, channel, UInt8[1,2,3,4])
+
+    # Subscription capacity is 1, so the queue should only have 1 message
+    # even though we published twice
+    @test LCMCore.get_queue_size(sub) == 1
+
+    # Handle the 1 message in queue and verify that the queue is now empty
     LCMCore.lcm_handle(lcm)
     @test did_check
+    @test LCMCore.get_queue_size(sub) == 0
 
-    event = poll_fd(fd, 1; readable=true)
     # We published twice and handled once. Because the queue capacity is only
     # 1, there should not be another message available to read.
-    # However, queue size is actually off by one in LCM:
-    # https://github.com/lcm-proj/lcm/issues/167
-    # so this test won't pass.
-    # @test !event.readable
+    event = poll_fd(fd, 1; readable=true)
+    @show event
+    @test !event.readable
 end
 
 @testset "queue capacity 2" begin
@@ -133,16 +138,26 @@ end
     fd = filedescriptor(lcm)
     publish(lcm, channel, UInt8[1,2,3,4,5])
     publish(lcm, channel, UInt8[1,2,3,4,5])
+    @test LCMCore.get_queue_size(sub) == 2
     LCMCore.lcm_handle(lcm)
     @test did_check
 
     # We published twice and handled once. The queue capacity is 2, so
     # there should be another message available to read.
-    # This will pass despite https://github.com/lcm-proj/lcm/issues/167
-    # because that bug causes the queue size to actually be 3 instead of 2.
-    # In either case, fd will be readable.
+    @test LCMCore.get_queue_size(sub) == 1
     event = poll_fd(fd, 1; readable=true)
     @test event.readable
+
+    # Now we handle the second message in the queue
+    did_check = false
+    LCMCore.lcm_handle(lcm)
+    @test did_check
+
+    # Now we've exhausted the queue, so there should be no more messages
+    # available to read
+    @test LCMCore.get_queue_size(sub) == 0
+    event = poll_fd(fd, 1; readable=true)
+    @test !event.readable
 end
 
 @testset "unsubscribe" begin

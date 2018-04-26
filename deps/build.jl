@@ -59,7 +59,7 @@ end
 provides(Yum,
     Dict("glib" => glib))
 
-lcm_sha = "9e53469cd0713ca8fbf37a968f6fd314f5f11584"
+lcm_sha = "0e6472188332bf5683d1ccdd29ba6855ac3cd593"
 lcm_folder = "lcm-$(lcm_sha)"
 
 provides(Sources,
