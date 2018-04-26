@@ -39,7 +39,12 @@ end
 
 prefix = joinpath(BinDeps.depsdir(lcm), "usr")
 
-lcm_cmake_arguments = String[]
+lcm_cmake_arguments = [
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DLCM_ENABLE_TESTS:BOOL=OFF",
+    "-DLCM_ENABLE_EXAMPLES:BOOL=OFF"
+]
+
 @static if Compat.Sys.isapple()
     if Pkg.installed("Homebrew") === nothing
         error("Homebrew package not installed, please run Pkg.add(\"Homebrew\")")
@@ -48,11 +53,7 @@ lcm_cmake_arguments = String[]
     provides(Homebrew.HB, "glib", glib, os=:Darwin)
     push!(lcm_cmake_arguments,
         "-DCMAKE_LIBRARY_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "lib"))",
-        "-DCMAKE_INCLUDE_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "include"))",
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DLCM_ENABLE_TESTS:BOOL=OFF",
-        "-DLCM_ENABLE_EXAMPLES:BOOL=OFF")
-
+        "-DCMAKE_INCLUDE_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "include"))")
 end
 
 provides(Yum,
