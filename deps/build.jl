@@ -49,7 +49,9 @@ lcm_cmake_arguments = String[]
     push!(lcm_cmake_arguments,
         "-DCMAKE_LIBRARY_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "lib"))",
         "-DCMAKE_INCLUDE_PATH=$(joinpath(Pkg.dir("Homebrew"), "deps", "usr", "include"))",
-        "-DCMAKE_BUILD_TYPE=Release")
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DLCM_ENABLE_TESTS:BOOL=OFF",
+        "-DLCM_ENABLE_EXAMPLES:BOOL=OFF")
 
 end
 
