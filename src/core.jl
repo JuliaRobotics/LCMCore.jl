@@ -174,6 +174,10 @@ function set_queue_capacity(sub::Subscription, capacity::Integer)
     return status == 0
 end
 
+function get_queue_size(sub::Subscription)
+    ccall((:lcm_subscription_get_queue_size, liblcm), Cint, (Ptr{Void},), sub)
+end
+
 lcm_handle(lcm::LCM) = ccall((:lcm_handle, liblcm), Cint, (Ptr{Void},), lcm)
 
 function handle(lcm::LCM)
