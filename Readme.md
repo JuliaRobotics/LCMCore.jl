@@ -223,15 +223,24 @@ Events are read from file one at a time and use a similar API as the UDP traffic
 ```julia
 function callback(channel, msgdata)
   msg = decode(MsgType, msgdata) # slower, fresh memory allocation -- consider typedcallback(...) with decode! instead
+  @show msg
+  # ...
+  nothing
+end
+
+function typed_callback(channel, msg::MsgType)
+  @show msg
   # ...
   nothing
 end
 
 lcm = LCMLog("log.lcm")
-subscribe(lcm, "CHANNEL", callback )
-#subscribe(lcm, "CHANNEL", typedcallback, MsgType )
+#subscribe(lcm, "CHANNEL", callback )
+subscribe(lcm, "CHANNEL", typedcallback, MsgType )
 
-while handle(lcm); end
+while true
+  handle(lcm)
+end
 ```
 
 See the `test` folder for a more detailed example.
