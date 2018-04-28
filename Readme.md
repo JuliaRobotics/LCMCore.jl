@@ -236,7 +236,7 @@ end
 
 lcm = LCMLog("log.lcm")
 #subscribe(lcm, "CHANNEL", callback )
-subscribe(lcm, "CHANNEL", typedcallback, MsgType )
+subscribe(lcm, "CHANNEL", typed_callback, MsgType )
 
 while true
   handle(lcm)
