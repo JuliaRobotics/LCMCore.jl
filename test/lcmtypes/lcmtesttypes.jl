@@ -4,6 +4,7 @@ export lcm_test_type_1, lcm_test_type_2, lcm_test_type_3, polynomial_t, polynomi
 export hard_coded_example
 
 using LCMCore, StaticArrays
+using Random: randstring
 
 mutable struct lcm_test_type_1 <: LCMType
     a::Int16
@@ -190,7 +191,7 @@ function Base.rand(::Type{polynomial_matrix_t})
 end
 
 function hard_coded_example(::Type{polynomial_matrix_t})
-    polynomials = Matrix{polynomial_t}(2, 1)
+    polynomials = Matrix{polynomial_t}(undef, 2, 1)
     polynomials[1] = polynomial_t(1234, 4, [5.0, 0.0, 1.0, 3.0])
     polynomials[2] = polynomial_t(1234, 4, [10.0, 0.0, 2.0, 6.0])
     polynomial_matrix_t(1234, 2, 1, polynomials)

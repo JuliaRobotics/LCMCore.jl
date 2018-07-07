@@ -1,8 +1,9 @@
-using Base.Test
+using Test
 using LCMCore
 using StaticArrays
 using BufferedStreams
-using Base.Dates: Second, Millisecond
+using Dates: Second, Millisecond
+using FileWatching: poll_fd
 import LCMCore: encode, decode
 
 @testset "close multiple times" begin
