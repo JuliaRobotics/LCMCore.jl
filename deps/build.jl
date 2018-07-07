@@ -1,6 +1,6 @@
 using BinDeps
 using CMakeWrapper
-using Compat
+using Pkg
 
 @BinDeps.setup
 
@@ -20,7 +20,7 @@ end
 # Explicitly disallow global LCM installations
 validate_lcm(name, handle) = contains(name, dirname(@__FILE__))
 
-@static if Compat.Sys.islinux()
+@static if Sys.islinux()
     deps = [
         python = library_dependency("python", aliases=["libpython2.7.so", "libpython3.2.so", "libpython3.3.so", "libpython3.4.so", "libpython3.5.so", "libpython3.6.so", "libpython3.7.so", "libpython3.8.so"], validate=cflags_validator("python", "python2", "python3"))
         glib = library_dependency("glib", aliases=["libglib-2.0-0", "libglib-2.0", "libglib-2.0.so.0"], depends=[python], validate=cflags_validator("glib-2.0"))
@@ -45,10 +45,7 @@ lcm_cmake_arguments = [
     "-DLCM_ENABLE_EXAMPLES:BOOL=OFF"
 ]
 
-@static if Compat.Sys.isapple()
-    if Pkg.installed("Homebrew") === nothing
-        error("Homebrew package not installed, please run Pkg.add(\"Homebrew\")")
-    end
+@static if Sys.isapple()
     using Homebrew
     provides(Homebrew.HB, "glib", glib, os=:Darwin)
     push!(lcm_cmake_arguments,

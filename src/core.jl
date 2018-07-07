@@ -30,10 +30,10 @@ end
 loopback_interface() = chomp(readstring(pipeline(`ifconfig`, `grep -m 1 -i loopback`, `cut -d : -f1`)))
 
 function loopback_multicast_setup_advice(lo::AbstractString)
-    if Compat.Sys.isapple()
+    if Sys.isapple()
         """Consider running (as root):
         route add -net 224.0.0.0 -netmask 240.0.0.0 -interface $lo"""
-    elseif Compat.Sys.islinux()
+    elseif Sys.islinux()
         """Consider running (as root):
         ifconfig $lo multicast
         route add -net 224.0.0.0 netmask 240.0.0.0 dev lo"""
@@ -57,9 +57,9 @@ function check_loopback_multicast(lo::AbstractString)
 end
 
 function check_multicast_routing(lo::AbstractString)
-    routing_correct = if Compat.Sys.isapple()
+    routing_correct = if Sys.isapple()
         chomp(readstring(pipeline(`route get 224.0.0.0 -netmask 240.0.0.0`, `grep -m 1 -i interface`, `cut -f2 -d :`, `tr -d ' '`))) == lo
-    elseif Compat.Sys.islinux()
+    elseif Sys.islinux()
         chomp(readstring(pipeline(`ip route get 224.0.0.0`, `grep -m 1 -i dev`, `sed 's/.*dev\s*//g'`, `cut -d ' ' -f1`))) == lo
     else
         error("Sorry, I only know how to check multicast routing on Linux and macOS")
