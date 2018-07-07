@@ -413,7 +413,7 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
     # LCMCore.fingerprint method
     fingerprint = quote
         let hash = reinterpret(Int64, LCMCore.computehash($lcmt, DataType[]))
-            @eval LCMCore.fingerprint(::Type{$lcmt}) = $(Expr(:$, :hash))
+            LCMCore.fingerprint(::Type{$lcmt}) = hash
         end
     end
 
