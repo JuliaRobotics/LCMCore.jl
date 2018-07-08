@@ -52,7 +52,7 @@ defaultval(::Type{T}) where {T<:LCMType} = T()
 defaultval(::Type{Bool}) = false
 defaultval(::Type{T}) where {T<:NetworkByteOrderEncoded} = zero(T)
 defaultval(::Type{String}) = ""
-defaultval(::Type{Array{T, N}}) where {T, N} = Array{T, N}(ntuple(i -> 0, Val(N))...)
+defaultval(::Type{Array{T, N}}) where {T, N} = Array{T, N}(undef, ntuple(i -> 0, Val(N))...)
 defaultval(::Type{SA}) where {T, SA<:StaticArray{<:Any, T}} = _defaultval(SA, T, Length(SA))
 _defaultval(::Type{SA}, ::Type{T}, ::Length{L}) where {SA, T, L} = SA(ntuple(i -> defaultval(T), Val(L)))
 
@@ -199,7 +199,7 @@ end
         Base.@_inline_meta
         newsize = evaldims(x, dimensions(T, $(Val(fieldname)))...)
         if newsize !== size(x.$fieldname)
-            x.$fieldname = Array{S, N}(uninitialized, newsize...)
+            x.$fieldname = Array{S, N}(undef, newsize...)
             @inbounds for i in eachindex(x.$fieldname)
                 x.$fieldname[i] = defaultval(S)
             end
@@ -247,7 +247,7 @@ function decode_in_place end
 
 decode_in_place(::Type{<:LCMType}) = true
 @generated function decodefield!(x::T, io::IO) where T<:LCMType
-    field_assignments = Vector{Expr}(fieldcount(x))
+    field_assignments = Vector{Expr}(undef, fieldcount(x))
     for (i, fieldname) in enumerate(fieldnames(x))
         F = fieldtype(x, fieldname)
         field_assignments[i] = quote
@@ -323,7 +323,7 @@ function encode(io::IO, x::LCMType)
 end
 
 @generated function encodefield(io::IO, x::LCMType)
-    encode_exprs = Vector{Expr}(fieldcount(x))
+    encode_exprs = Vector{Expr}(undef, fieldcount(x))
     for (i, fieldname) in enumerate(fieldnames(x))
         encode_exprs[i] = :(encodefield(io, x.$fieldname))
     end
@@ -348,8 +348,8 @@ function encodefield(io::IO, A::AbstractArray)
 end
 
 # Sugar
-encode(data::Vector{UInt8}, x::LCMType) = encode(IOBuffer(data, false, true), x)
-encode(x::LCMType) = (stream = IOBuffer(false, true); encode(stream, x); flush(stream); take!(stream))
+encode(data::Vector{UInt8}, x::LCMType) = encode(IOBuffer(data, read=false, write=true), x)
+encode(x::LCMType) = (stream = IOBuffer(read=false, write=true); encode(stream, x); flush(stream); take!(stream))
 
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
@@ -430,11 +430,11 @@ function make_fixed_dimensions_methods(::Type{T}) where T<:LCMType
         if F <: Array
             # skip
         elseif F <: StaticArray
-            let dimtuple = LCMCore.makedim.(size(F))
-                LCMCore.dimensions(::Type{T}, ::Val{field}) = dimtuple
+            @eval let dimtuple = LCMCore.makedim.(size($F))
+                LCMCore.dimensions(::Type{$T}, ::Val{$(QuoteNode(field))}) = dimtuple
             end
         else
-            LCMCore.dimensions(::Type{T}, ::Val{field}) = ()
+            @eval LCMCore.dimensions(::Type{$T}, ::Val{$(QuoteNode(field))}) = ()
         end
     end
 end

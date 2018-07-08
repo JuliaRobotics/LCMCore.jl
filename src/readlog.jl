@@ -1,7 +1,7 @@
 # Read LCM log files directly
 
 mutable struct lcm_eventlog_t
-  f::Ptr{Void}
+  f::Ptr{Cvoid}
   eventcount::Int64 #Clonglong
 end
 
@@ -29,7 +29,7 @@ end
 function lcm_eventlog_destroy(_log::Ptr{lcm_eventlog_t})
   ccall(
     (:lcm_eventlog_destroy, LCMCore.liblcm),
-    Void,
+    Cvoid,
     (Ptr{lcm_eventlog_t}, ),
     _log
   )
@@ -75,7 +75,7 @@ isgood(_log::Ptr{lcm_eventlog_t}) = _log != C_NULL
 isgood(lcmlog::LCMLog) = isgood(lcmlog._log)
 isgood(_event::Ptr{lcm_eventlog_event_t}) = _event != C_NULL
 
-function read_next_event(lcmlog::LCMLog)::Union{Void, lcm_eventlog_event_t}
+function read_next_event(lcmlog::LCMLog)::Union{Nothing, lcm_eventlog_event_t}
   _event = lcm_eventlog_read_next_event(lcmlog._log)
   if isgood(_event)
     return unsafe_load(_event)
@@ -101,7 +101,7 @@ function handle(lcmlog::LCMLog)::Bool
     return false
 end
 
-function subscribe(lcmlog::LCMLog, channel::S, callback::F, msgtype=Void) where {S <: AbstractString, F <: Function}
+function subscribe(lcmlog::LCMLog, channel::S, callback::F, msgtype=Nothing) where {S <: AbstractString, F <: Function}
   opts = LCMCore.LCMCore.SubscriptionOptions(msgtype, callback)
   lcmlog.subscriptions[channel] = opts
   nothing

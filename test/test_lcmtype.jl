@@ -1,5 +1,6 @@
 using LCMCore
-using Base.Test
+using Test
+using Random
 using StaticArrays
 using BufferedStreams
 
@@ -26,7 +27,7 @@ function test_in_place_decode_noalloc(::Type{T}) where T<:LCMType
 end
 
 @testset "LCMType" begin
-    using lcmtesttypes
+    using .lcmtesttypes
     srand(1)
 
     # Check base hashes (obtained from lcm-gen --debug; note that hash reported by lcm-gen is a **signed** integer (despite the 0x prefix))
@@ -60,7 +61,7 @@ end
 
     # Test against byte blobs that were encoded using pylcm
     for lcmt in [lcm_test_type_1, lcm_test_type_2, lcm_test_type_3, polynomial_t, polynomial_matrix_t]
-        bytes = read(Pkg.dir("LCMCore", "test", "lcmtypes", string(lcmt.name.name) * "_example_bytes"))
+        bytes = read(joinpath(@__DIR__, "lcmtypes", string(lcmt.name.name) * "_example_bytes"))
         @test hard_coded_example(lcmt) == decode(bytes, lcmt)
     end
 

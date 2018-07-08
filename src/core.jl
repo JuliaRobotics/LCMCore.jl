@@ -12,9 +12,9 @@ end
 
 struct Subscription{T <: SubscriptionOptions}
     options::T
-    csubscription::Ptr{Void}
+    csubscription::Ptr{Cvoid}
 end
-unsafe_convert(::Type{Ptr{Void}}, sub::Subscription) = sub.csubscription
+unsafe_convert(::Type{Ptr{Cvoid}}, sub::Subscription) = sub.csubscription
 
 # Troubleshooting adapted from:
 # https://github.com/RobotLocomotion/drake/blob/f72bb3f465f69f25459a7a65c57b45c795b5e31d/drake/matlab/util/setup_loopback_multicast.sh
@@ -30,10 +30,10 @@ end
 loopback_interface() = chomp(readstring(pipeline(`ifconfig`, `grep -m 1 -i loopback`, `cut -d : -f1`)))
 
 function loopback_multicast_setup_advice(lo::AbstractString)
-    if Compat.Sys.isapple()
+    if Sys.isapple()
         """Consider running (as root):
         route add -net 224.0.0.0 -netmask 240.0.0.0 -interface $lo"""
-    elseif Compat.Sys.islinux()
+    elseif Sys.islinux()
         """Consider running (as root):
         ifconfig $lo multicast
         route add -net 224.0.0.0 netmask 240.0.0.0 dev lo"""
@@ -57,9 +57,9 @@ function check_loopback_multicast(lo::AbstractString)
 end
 
 function check_multicast_routing(lo::AbstractString)
-    routing_correct = if Compat.Sys.isapple()
+    routing_correct = if Sys.isapple()
         chomp(readstring(pipeline(`route get 224.0.0.0 -netmask 240.0.0.0`, `grep -m 1 -i interface`, `cut -f2 -d :`, `tr -d ' '`))) == lo
-    elseif Compat.Sys.islinux()
+    elseif Sys.islinux()
         chomp(readstring(pipeline(`ip route get 224.0.0.0`, `grep -m 1 -i dev`, `sed 's/.*dev\s*//g'`, `cut -d ' ' -f1`))) == lo
     else
         error("Sorry, I only know how to check multicast routing on Linux and macOS")
@@ -80,29 +80,29 @@ end
 
 # must be mutable so that we can attach a finalizer
 mutable struct LCM
-    pointer::Ptr{Void}
+    pointer::Ptr{Cvoid}
     provider::String
     filedescriptor::RawFD
     subscriptions::Vector{Subscription}
 
     LCM(provider="") = begin
-        pointer = ccall((:lcm_create, liblcm), Ptr{Void}, (Ptr{UInt8},), provider)
+        pointer = ccall((:lcm_create, liblcm), Ptr{Cvoid}, (Ptr{UInt8},), provider)
         if pointer == C_NULL
             troubleshoot()
         end
-        filedescriptor = RawFD(ccall((:lcm_get_fileno, liblcm), Cint, (Ptr{Void},), pointer))
+        filedescriptor = RawFD(ccall((:lcm_get_fileno, liblcm), Cint, (Ptr{Cvoid},), pointer))
         lcm = new(pointer, provider, filedescriptor, Subscription[])
-        finalizer(lcm, close)
+        finalizer(close, lcm)
         lcm
     end
 end
-unsafe_convert(::Type{Ptr{Void}}, lcm::LCM) = lcm.pointer
+unsafe_convert(::Type{Ptr{Cvoid}}, lcm::LCM) = lcm.pointer
 
 isgood(lcm::LCM) = lcm.pointer != C_NULL
 
 function close(lcm::LCM)
     if isgood(lcm)
-        ccall((:lcm_destroy, liblcm), Void, (Ptr{Void},), lcm)
+        ccall((:lcm_destroy, liblcm), Cvoid, (Ptr{Cvoid},), lcm)
         lcm.pointer = C_NULL
     end
 end
@@ -122,7 +122,7 @@ function publish(lcm::LCM, channel::AbstractString, msg::T) where T
 end
 
 function publish(lcm::LCM, channel::AbstractString, data::Vector{UInt8})
-    status = ccall((:lcm_publish, liblcm), Cint, (Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}, Cuint), lcm, channel, data, length(data))
+    status = ccall((:lcm_publish, liblcm), Cint, (Ptr{Cvoid}, Ptr{UInt8}, Ptr{UInt8}, Cuint), lcm, channel, data, length(data))
     return status == 0
 end
 
@@ -132,53 +132,53 @@ struct RecvBuf
     data::Ptr{UInt8}
     data_size::UInt32
     recv_utime::Int64
-    lcm::Ptr{Void}
+    lcm::Ptr{Cvoid}
 end
 
 function onresponse(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, opts::SubscriptionOptions{T}) where T
     channel = unsafe_string(channelbytes)
     msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
-    if isa(T, Type{Void})
+    if T === Nothing
         opts.handler(channel, msgdata)
     else
         msg = decode(msgdata, opts.msgtype)
         opts.handler(channel, msg)
     end
-    return nothing::Void
+    return nothing
 end
 
 function subscribe(lcm::LCM, channel::String, options::T) where T <: SubscriptionOptions
-    csubscription = ccall((:lcm_subscribe, liblcm), Ptr{Void},
-        (Ptr{Void}, Ptr{UInt8}, Ptr{Void}, Ptr{Void}),
+    csubscription = ccall((:lcm_subscribe, liblcm), Ptr{Cvoid},
+        (Ptr{Cvoid}, Ptr{UInt8}, Ptr{Cvoid}, Ptr{Cvoid}),
         lcm,
         channel,
-        cfunction(onresponse, Void, Tuple{Ref{RecvBuf}, Ptr{UInt8}, Ref{T}}),
+        @cfunction(onresponse, Cvoid, (Ref{RecvBuf}, Ptr{UInt8}, Ref{T})),
         Ref(options))
     sub = Subscription(options, csubscription)
     push!(lcm.subscriptions, sub)
     sub
 end
 
-function subscribe(lcm::LCM, channel::String, handler, msgtype=Void)
+function subscribe(lcm::LCM, channel::String, handler, msgtype=Nothing)
     subscribe(lcm, channel, SubscriptionOptions(msgtype, handler))
 end
 
 function unsubscribe(lcm::LCM, subscription::Subscription)
-    result = ccall((:lcm_unsubscribe, liblcm), Cint, (Ptr{Void}, Ptr{Void}), lcm, subscription)
+    result = ccall((:lcm_unsubscribe, liblcm), Cint, (Ptr{Cvoid}, Ptr{Cvoid}), lcm, subscription)
     result == 0
 end
 
 function set_queue_capacity(sub::Subscription, capacity::Integer)
     @assert capacity >= 0
-    status = ccall((:lcm_subscription_set_queue_capacity, liblcm), Cint, (Ptr{Void}, Cint), sub, capacity)
+    status = ccall((:lcm_subscription_set_queue_capacity, liblcm), Cint, (Ptr{Cvoid}, Cint), sub, capacity)
     return status == 0
 end
 
 function get_queue_size(sub::Subscription)
-    ccall((:lcm_subscription_get_queue_size, liblcm), Cint, (Ptr{Void},), sub)
+    ccall((:lcm_subscription_get_queue_size, liblcm), Cint, (Ptr{Cvoid},), sub)
 end
 
-lcm_handle(lcm::LCM) = ccall((:lcm_handle, liblcm), Cint, (Ptr{Void},), lcm)
+lcm_handle(lcm::LCM) = ccall((:lcm_handle, liblcm), Cint, (Ptr{Cvoid},), lcm)
 
 function handle(lcm::LCM)
     fd = filedescriptor(lcm)

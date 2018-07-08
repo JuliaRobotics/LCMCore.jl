@@ -2,9 +2,12 @@ __precompile__()
 
 module LCMCore
 
-using Compat
 using StaticArrays
 using BufferedStreams
+
+using Dates
+using FileWatching: poll_fd
+import Base: unsafe_convert, close
 
 depsjl = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")
 if !isfile(depsjl)
@@ -13,8 +16,6 @@ else
     include(depsjl)
 end
 
-import Base: unsafe_convert, close
-using Base.Dates: Period, Millisecond
 export LCM,
        LCMType,
        publish,
