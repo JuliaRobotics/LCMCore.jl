@@ -27,7 +27,7 @@ function troubleshoot()
     error("Failed to create LCM instance.")
 end
 
-loopback_interface() = chomp(readstring(pipeline(`ifconfig`, `grep -m 1 -i loopback`, `cut -d : -f1`)))
+loopback_interface() = chomp(read(pipeline(`ifconfig`, `grep -m 1 -i loopback`, `cut -d : -f1`), String))
 
 function loopback_multicast_setup_advice(lo::AbstractString)
     if Sys.isapple()
@@ -43,7 +43,7 @@ function loopback_multicast_setup_advice(lo::AbstractString)
 end
 
 function check_loopback_multicast(lo::AbstractString)
-    pass = if parse(readstring(pipeline(`ifconfig $lo`, `grep -c -i multicast`))) != 0
+    pass = if Meta.parse(read(pipeline(`ifconfig $lo`, `grep -c -i multicast`), String)) != 0
         msg = """Loopback interface $lo is not set to multicast.
         The most probable cause for this is that you are not connected to the internet.
         See https://lcm-proj.github.io/multicast_setup.html.
@@ -58,9 +58,9 @@ end
 
 function check_multicast_routing(lo::AbstractString)
     routing_correct = if Sys.isapple()
-        chomp(readstring(pipeline(`route get 224.0.0.0 -netmask 240.0.0.0`, `grep -m 1 -i interface`, `cut -f2 -d :`, `tr -d ' '`))) == lo
+        chomp(read(pipeline(`route get 224.0.0.0 -netmask 240.0.0.0`, `grep -m 1 -i interface`, `cut -f2 -d :`, `tr -d ' '`), String)) == lo
     elseif Sys.islinux()
-        chomp(readstring(pipeline(`ip route get 224.0.0.0`, `grep -m 1 -i dev`, `sed 's/.*dev\s*//g'`, `cut -d ' ' -f1`))) == lo
+        chomp(read(pipeline(`ip route get 224.0.0.0`, `grep -m 1 -i dev`, `sed 's/.*dev\s*//g'`, `cut -d ' ' -f1`), String)) == lo
     else
         error("Sorry, I only know how to check multicast routing on Linux and macOS")
     end
