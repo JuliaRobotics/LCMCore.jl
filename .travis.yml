@@ -12,6 +12,7 @@ notifications:
 branches:
   only:
     - master
+    - release-0.6
 matrix:
  allow_failures:
  - julia: nightly
