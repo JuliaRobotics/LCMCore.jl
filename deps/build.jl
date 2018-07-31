@@ -42,7 +42,9 @@ prefix = joinpath(BinDeps.depsdir(lcm), "usr")
 lcm_cmake_arguments = [
     "-DCMAKE_BUILD_TYPE=Release",
     "-DLCM_ENABLE_TESTS:BOOL=OFF",
-    "-DLCM_ENABLE_EXAMPLES:BOOL=OFF"
+    "-DLCM_ENABLE_EXAMPLES:BOOL=OFF",
+    "-DLCM_ENABLE_JAVA:BOOL=OFF",
+    "-DLCM_ENABLE_LUA:BOOL=OFF"
 ]
 
 @static if Compat.Sys.isapple()
