@@ -14,7 +14,6 @@ function Base.iterate(inds::ReverseDimIndices{N}, state::Int=1) where {N}
     return ind, state + 1
 end
 
-Base.done(inds::ReverseDimIndices, state::Int) = state > inds.length
 Base.length(inds::ReverseDimIndices) = inds.length
 
 reversedimindices(A::AbstractArray) = ReverseDimIndices(A)
