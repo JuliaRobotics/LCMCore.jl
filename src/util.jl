@@ -6,12 +6,14 @@ struct ReverseDimIndices{C<:CartesianIndices}
 end
 ReverseDimIndices(A::AbstractArray) = ReverseDimIndices(CartesianIndices(reverse(size(A))))
 
-Base.start(inds::ReverseDimIndices{N}) where {N} = 1
-function Base.next(inds::ReverseDimIndices{N}, state::Int) where N
+function Base.iterate(inds::ReverseDimIndices{N}, state::Int=1) where {N}
+    if state > inds.length
+        return nothing
+    end
     ind = CartesianIndex(reverse(inds.revcartinds[state].I))
-    ind, state + 1
+    return ind, state + 1
 end
-Base.done(inds::ReverseDimIndices, state::Int) = state > inds.length
+
 Base.length(inds::ReverseDimIndices) = inds.length
 
 reversedimindices(A::AbstractArray) = ReverseDimIndices(A)

@@ -28,7 +28,7 @@ end
 
 @testset "LCMType" begin
     using .lcmtesttypes
-    srand(1)
+    Random.seed!(1)
 
     # Check base hashes (obtained from lcm-gen --debug; note that hash reported by lcm-gen is a **signed** integer (despite the 0x prefix))
     @test LCMCore.basehash(lcm_test_type_1) == 0x6ac981fb91a46d8b
