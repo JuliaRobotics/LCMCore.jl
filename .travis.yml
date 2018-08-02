@@ -17,5 +17,5 @@ branches:
 #  allow_failures:
 #  - julia: 0.7
 after_success:
-  - julia -e 'cd(Pkg.dir("LCMCore")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+  - julia -e 'using LCMCore; cd(pathof(LCMCore)); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
 
