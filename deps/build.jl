@@ -51,8 +51,8 @@ lcm_cmake_arguments = [
     using Homebrew
     provides(Homebrew.HB, "glib", glib, os=:Darwin)
     push!(lcm_cmake_arguments,
-        "-DCMAKE_LIBRARY_PATH=$(joinpath(pathof(Homebrew), "deps", "usr", "lib"))",
-        "-DCMAKE_INCLUDE_PATH=$(joinpath(pathof(Homebrew), "deps", "usr", "include"))")
+        "-DCMAKE_LIBRARY_PATH=$(joinpath(dirname(pathof(Homebrew)), "..", "deps", "usr", "lib"))",
+        "-DCMAKE_INCLUDE_PATH=$(joinpath(dirname(pathof(Homebrew)), "..", "deps", "usr", "include"))")
 end
 
 provides(Yum,

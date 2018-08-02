@@ -16,7 +16,6 @@ branches:
 matrix:
  allow_failures:
  - julia: 0.7
-   os: osx
 after_success:
   - julia -e 'cd(Pkg.dir("LCMCore")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
 
