@@ -348,8 +348,8 @@ function encodefield(io::IO, A::AbstractArray)
 end
 
 # Sugar
-encode(data::Vector{UInt8}, x::LCMType) = encode(IOBuffer(data, read=false, write=true), x)
-encode(x::LCMType) = (stream = IOBuffer(read=false, write=true); encode(stream, x); flush(stream); take!(stream))
+encode(data::Vector{UInt8}, x::LCMType) = encode(EfficientWriteBuffer(data), x)
+encode(x::LCMType) = (stream = EfficientWriteBuffer(); encode(stream, x); flush(stream); take!(stream))
 
 decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, BufferedInputStream(data))
 decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)

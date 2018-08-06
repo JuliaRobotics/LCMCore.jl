@@ -30,9 +30,12 @@ export LCM,
        LCMLog,
        @lcmtypesetup
 
+include("EfficientWriteBuffers.jl")
+using .EfficientWriteBuffers: EfficientWriteBuffer
 
 include("util.jl")
 include("core.jl")
 include("lcmtype.jl")
 include("readlog.jl")
+
 end
