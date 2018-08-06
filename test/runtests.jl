@@ -215,6 +215,6 @@ end
     @test did_callback2
 end
 
+include("test_EfficientWriteBuffers.jl")
 include("test_lcmtype.jl")
 include("test_readlog.jl")
-
