@@ -1,7 +1,8 @@
 module LCMCore
 
 using StaticArrays
-using BufferedStreams
+using FastIOBuffers
+using BufferedStreams # TODO: remove, replace BufferedInputStream usages with FastIOBuffers.FastReadBuffer once it exists
 
 using Dates
 using FileWatching: poll_fd
