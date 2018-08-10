@@ -2,8 +2,7 @@ using LCMCore
 using Test
 using Random
 using StaticArrays
-using BufferedStreams
-using FastIOBuffers
+using FastIOBuffers: FastReadBuffer, FastWriteBuffer, setdata!
 
 include(joinpath(@__DIR__, "lcmtypes", "lcmtesttypes.jl"))
 
@@ -20,10 +19,13 @@ function test_in_place_decode_noalloc(::Type{T}) where T<:LCMType
     in = rand(T)
     bytes = encode(in)
     out = deepcopy(in)
-    decodestream = BufferedInputStream(bytes)
+    decodestream = FastReadBuffer()
+    setdata!(decodestream, bytes)
     decode!(out, decodestream)
-    decodestream = BufferedInputStream(bytes)
-    allocs = @allocated decode!(out, decodestream)
+    allocs = @allocated begin
+        setdata!(decodestream, bytes)
+        decode!(out, decodestream)
+    end
     @test allocs == 0
 end
 
