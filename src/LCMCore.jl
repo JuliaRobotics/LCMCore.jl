@@ -1,7 +1,7 @@
 module LCMCore
 
 using StaticArrays
-using BufferedStreams
+using FastIOBuffers
 
 using Dates
 using FileWatching: poll_fd

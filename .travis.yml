@@ -6,6 +6,7 @@ os:
   - osx
 julia:
   - 0.7
+  - 1.0
   - nightly
 notifications:
   email: false
@@ -14,8 +15,8 @@ branches:
     - master
     - /^release-.*$/
 matrix:
- allow_failures:
- - julia: 0.7
+  allow_failures:
+  - julia: 1.0
+  - julia: nightly
 after_success:
-  - julia -e 'cd(Pkg.dir("LCMCore")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
-
+- julia --project -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'

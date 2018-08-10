@@ -1,7 +1,6 @@
 using Test
 using LCMCore
 using StaticArrays
-using BufferedStreams
 using Dates: Second, Millisecond
 using FileWatching: poll_fd
 import LCMCore: encode, decode

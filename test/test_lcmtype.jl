@@ -2,7 +2,7 @@ using LCMCore
 using Test
 using Random
 using StaticArrays
-using BufferedStreams
+using FastIOBuffers: FastReadBuffer, FastWriteBuffer, setdata!
 
 include(joinpath(@__DIR__, "lcmtypes", "lcmtesttypes.jl"))
 
@@ -19,10 +19,22 @@ function test_in_place_decode_noalloc(::Type{T}) where T<:LCMType
     in = rand(T)
     bytes = encode(in)
     out = deepcopy(in)
-    decodestream = BufferedInputStream(bytes)
+    decodestream = FastReadBuffer()
+    setdata!(decodestream, bytes)
     decode!(out, decodestream)
-    decodestream = BufferedInputStream(bytes)
-    allocs = @allocated decode!(out, decodestream)
+    allocs = @allocated begin
+        setdata!(decodestream, bytes)
+        decode!(out, decodestream)
+    end
+    @test allocs == 0
+end
+
+function test_in_place_encode_noalloc(::Type{T}) where T<:LCMType
+    in = rand(T)
+    encodestream = FastWriteBuffer()
+    encode(encodestream, in)
+    take!(encodestream)
+    allocs = @allocated encode(encodestream, in)
     @test allocs == 0
 end
 
@@ -47,6 +59,13 @@ end
     test_in_place_decode_noalloc(lcm_test_type_2)
     test_in_place_decode_noalloc(polynomial_t)
     test_in_place_decode_noalloc(polynomial_matrix_t)
+
+    # Check that encoding types doesn't allocate
+    test_in_place_encode_noalloc(lcm_test_type_1)
+    test_in_place_encode_noalloc(lcm_test_type_2)
+    test_in_place_encode_noalloc(lcm_test_type_3)
+    test_in_place_encode_noalloc(polynomial_t)
+    test_in_place_encode_noalloc(polynomial_matrix_t)
 
     # Mismatch between length field and length of corresponding vector
     bad = rand(lcm_test_type_1)
