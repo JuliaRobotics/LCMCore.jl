@@ -8,6 +8,7 @@ function decode end
 struct SubscriptionOptions{T, F}
     msgtype::Type{T}
     handler::F
+    channel::String
 end
 
 struct Subscription{T <: SubscriptionOptions}
@@ -135,23 +136,32 @@ struct RecvBuf
     lcm::Ptr{Cvoid}
 end
 
-function onresponse(rbuf::RecvBuf, channelbytes::Ptr{UInt8}, opts::SubscriptionOptions{T}) where T
-    channel = unsafe_string(channelbytes)
+function check_channel_name(channelptr::Ptr{UInt8}, opts::SubscriptionOptions)
+    i = 1
+    while (byte = unsafe_load(channelptr)) != 0x00
+        byte == UInt8(opts.channel[i]) || error("Mismatch between received channel name and subscription channel name")
+        i += 1
+        channelptr += 1
+    end
+end
+
+function onresponse(rbuf::RecvBuf, channelptr::Ptr{UInt8}, opts::SubscriptionOptions{T}) where T
+    check_channel_name(channelptr, opts)
     msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
     if T === Nothing
-        opts.handler(channel, msgdata)
+        opts.handler(opts.channel, msgdata)
     else
         msg = decode(msgdata, opts.msgtype)
-        opts.handler(channel, msg)
+        opts.handler(opts.channel, msg)
     end
     return nothing
 end
 
-function subscribe(lcm::LCM, channel::String, options::T) where T <: SubscriptionOptions
+function subscribe(lcm::LCM, options::T) where T <: SubscriptionOptions
     csubscription = ccall((:lcm_subscribe, liblcm), Ptr{Cvoid},
         (Ptr{Cvoid}, Ptr{UInt8}, Ptr{Cvoid}, Ptr{Cvoid}),
         lcm,
-        channel,
+        options.channel,
         @cfunction(onresponse, Cvoid, (Ref{RecvBuf}, Ptr{UInt8}, Ref{T})),
         Ref(options))
     sub = Subscription(options, csubscription)
@@ -160,7 +170,7 @@ function subscribe(lcm::LCM, channel::String, options::T) where T <: Subscriptio
 end
 
 function subscribe(lcm::LCM, channel::String, handler, msgtype=Nothing)
-    subscribe(lcm, channel, SubscriptionOptions(msgtype, handler))
+    subscribe(lcm, SubscriptionOptions(msgtype, handler, channel))
 end
 
 function unsubscribe(lcm::LCM, subscription::Subscription)

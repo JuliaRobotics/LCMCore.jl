@@ -102,7 +102,7 @@ function handle(lcmlog::LCMLog)::Bool
 end
 
 function subscribe(lcmlog::LCMLog, channel::S, callback::F, msgtype=Nothing) where {S <: AbstractString, F <: Function}
-  opts = LCMCore.LCMCore.SubscriptionOptions(msgtype, callback)
+  opts = SubscriptionOptions(msgtype, callback, channel)
   lcmlog.subscriptions[channel] = opts
   nothing
 end
