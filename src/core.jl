@@ -138,10 +138,9 @@ end
 
 function check_channel_name(channelptr::Ptr{UInt8}, opts::SubscriptionOptions)
     i = 1
-    while (byte = unsafe_load(channelptr)) != 0x00
-        byte == UInt8(opts.channel[i]) || error("Mismatch between received channel name and subscription channel name")
+    while (byte = unsafe_load(channelptr, i)) != 0x00
+        byte == codeunit(opts.channel, i) || error("Mismatch between received channel name and subscription channel name")
         i += 1
-        channelptr += 1
     end
 end
 
