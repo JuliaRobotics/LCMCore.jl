@@ -18,7 +18,7 @@ function cflags_validator(pkg_names...)
 end
 
 # Explicitly disallow global LCM installations
-validate_lcm(name, handle) = contains(name, dirname(@__FILE__))
+validate_lcm(name, handle) = occursin(dirname(@__FILE__), name)
 
 @static if Sys.islinux()
     python = library_dependency("python", aliases=["libpython2.7.so", "libpython3.2.so", "libpython3.3.so", "libpython3.4.so", "libpython3.5.so", "libpython3.6.so", "libpython3.7.so", "libpython3.8.so"], validate=cflags_validator("python", "python2", "python3"))
