@@ -16,7 +16,6 @@ branches:
     - /^release-.*$/
 matrix:
   allow_failures:
-  - julia: 1.0
   - julia: nightly
 after_success:
 - julia --project -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
