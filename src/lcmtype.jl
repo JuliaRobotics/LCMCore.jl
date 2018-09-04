@@ -402,39 +402,39 @@ macro lcmtypesetup(lcmt, dimensioninfos...)
         dims = dimensioninfo.args[3].args
         quote
             let dimtuple = tuple($(LCMCore.makedim.(dims)...))
-                LCMCore.dimensions(::Type{$lcmt}, ::Val{$(QuoteNode(vecfieldname))}) = dimtuple
+                LCMCore.dimensions(::Type{$(esc(lcmt))}, ::Val{$(QuoteNode(vecfieldname))}) = dimtuple
             end
         end
     end
 
     # LCMCore.dimensions methods for constant dimensions
-    makeconstdimmethods = :(LCMCore.make_fixed_dimensions_methods($lcmt))
-
-    # LCMCore.fingerprint method
-    fingerprint = quote
-        let hash = reinterpret(Int64, LCMCore.computehash($lcmt, DataType[]))
-            LCMCore.fingerprint(::Type{$lcmt}) = hash
+    makeconstdimmethods = quote
+        let T = $(esc(lcmt))
+            for field in fieldnames(T)
+                F = fieldtype(T, field)
+                if F <: Array
+                    # skip
+                elseif F <: StaticArray
+                    let dimtuple = LCMCore.makedim.(size(F))
+                        LCMCore.dimensions(::Type{T}, ::Val{field}) = dimtuple
+                    end
+                else
+                    LCMCore.dimensions(::Type{T}, ::Val{field}) = ()
+                end
+            end
         end
     end
 
-    esc(quote
+    # LCMCore.fingerprint method
+    fingerprint = quote
+        let hash = reinterpret(Int64, LCMCore.computehash($(esc(lcmt)), DataType[]))
+            LCMCore.fingerprint(::Type{$(esc(lcmt))}) = hash
+        end
+    end
+
+    quote
         $(vardimmethods...)
         $makeconstdimmethods
         $fingerprint
-    end)
-end
-
-function make_fixed_dimensions_methods(::Type{T}) where T<:LCMType
-    for field in fieldnames(T)
-        F = fieldtype(T, field)
-        if F <: Array
-            # skip
-        elseif F <: StaticArray
-            @eval let dimtuple = LCMCore.makedim.(size($F))
-                LCMCore.dimensions(::Type{$T}, ::Val{$(QuoteNode(field))}) = dimtuple
-            end
-        else
-            @eval LCMCore.dimensions(::Type{$T}, ::Val{$(QuoteNode(field))}) = ()
-        end
     end
 end
