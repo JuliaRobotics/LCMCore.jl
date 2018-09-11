@@ -214,6 +214,27 @@ end
     @test did_callback2
 end
 
+@testset "lcm_handle allocations" begin
+    data = UInt8[1,2,3,4,5]
+    channel = "CHANNEL_1"
+
+    # start listening
+    sublcm = LCM()
+    sub = subscribe(sublcm, channel, (c, d) -> nothing)
+    set_queue_capacity(sub, 2)
+
+    # publish two messages
+    publcm = LCM()
+    for _ = 1 : 2
+        publish(publcm, channel, data)
+    end
+
+    # check that handling doesn't allocate
+    LCMCore.lcm_handle(sublcm)
+    allocs = @allocated LCMCore.lcm_handle(sublcm)
+    @test allocs == 0
+end
+
 include("test_lcmtype.jl")
 include("test_readlog.jl")
 
