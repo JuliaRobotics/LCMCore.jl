@@ -4,3 +4,4 @@ BinDeps 0.8
 CMakeWrapper 0.2
 StaticArrays 0.5
 FastIOBuffers 0.0.1
+UnsafeArrays 0.2.0
