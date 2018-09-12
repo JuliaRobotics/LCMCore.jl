@@ -2,6 +2,7 @@ module LCMCore
 
 using StaticArrays
 using FastIOBuffers
+using UnsafeArrays
 
 using Dates
 using FileWatching: poll_fd

@@ -146,12 +146,14 @@ end
 
 function onresponse(rbuf::RecvBuf, channelptr::Ptr{UInt8}, opts::SubscriptionOptions{T}) where T
     check_channel_name(channelptr, opts)
-    msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
-    if T === Nothing
-        opts.handler(opts.channel, msgdata)
-    else
-        msg = decode(msgdata, opts.msgtype)
-        opts.handler(opts.channel, msg)
+    GC.@preserve rbuf begin
+        msgdata = UnsafeArray(rbuf.data, (Int(rbuf.data_size), ))
+        if T === Nothing
+            opts.handler(opts.channel, msgdata)
+        else
+            msg = decode(msgdata, opts.msgtype)
+            opts.handler(opts.channel, msg)
+        end
     end
     return nothing
 end
