@@ -5,6 +5,8 @@ using Dates: Second, Millisecond
 using FileWatching: poll_fd
 import LCMCore: encode, decode
 
+include("mymessage.jl")
+
 @testset "close multiple times" begin
     lcm = LCM()
     close(lcm)
@@ -55,23 +57,6 @@ end
     subscribe(lcm, channel, check_data)
     @async handle(lcm)
     publish(lcm, channel, data)
-end
-
-mutable struct MyMessage
-    field1::Int32
-    field2::Float64
-end
-
-function encode(msg::MyMessage)
-    buf = IOBuffer()
-    write(buf, hton(msg.field1))
-    write(buf, hton(msg.field2))
-    buf.data
-end
-
-function decode(data, msg::Type{MyMessage})
-    buf = IOBuffer(data)
-    MyMessage(ntoh(read(buf, Int32)), ntoh(read(buf, Float64)))
 end
 
 @testset "encode and decode" begin
@@ -237,4 +222,3 @@ end
 
 include("test_lcmtype.jl")
 include("test_readlog.jl")
-

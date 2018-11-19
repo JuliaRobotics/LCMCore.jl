@@ -1,88 +1,38 @@
-# testing ccall of LCM log file handling
-
-## Not repeating the definitions from earlier in the runtests.jl file
-# using Base: Test
-# using LCMCore
-#
-# import LCMCore: encode, decode
-#
-# mutable struct MyMessage
-#     field1::Int32
-#     field2::Float64
-# end
-#
-# function encode(msg::MyMessage)
-#     buf = IOBuffer()
-#     write(buf, hton(msg.field1))
-#     write(buf, hton(msg.field2))
-#     buf.data
-# end
-#
-# function decode(data, msg::Type{MyMessage})
-#     buf = IOBuffer(data)
-#     MyMessage(ntoh(read(buf, Int32)), ntoh(read(buf, Float64)))
-# end
-
-compare(a::MyMessage, b::MyMessage; tol::Float64=1e-14) = a.field1 == b.field1 && abs(a.field2 - b.field2) < tol
-
-function handledata(channel, msgdata, groundtruth)
-  msg = decode(msgdata, MyMessage)
-  @test compare(groundtruth, msg)
-  nothing
+function compare(a::MyMessage, b::MyMessage; tol::Float64=1e-14)
+    a.field1 == b.field1 && isapprox(a.field2, b.field2, atol=tol)
 end
 
-function handletype(channel, msg, groundtruth)
-  @test compare(groundtruth, msg)
-  nothing
+function handle_file(lcmlog::LCMLog; N=1)
+    for i in 1 : N
+        handle(lcmlog) || break
+    end
+    nothing
 end
 
-function handlefile(lcl; N=1)
-  for i in 1:N
-    handle(lcl) ? nothing : break
-  end
-  nothing
+function make_test_lcmlog()
+    # record a temporary log file
+    lcmlogdir = joinpath(@__DIR__, "testdata", "testlog.lcm")
+
+    # recreate the messages locally for comparison with those in the test log file
+    msg1 = MyMessage(23, 1.234)
+    msg2 = MyMessage(24, 2.345)
+
+    lcmlog = LCMLog(lcmlogdir)
+    subscribe(lcmlog, "CHANNEL_1", (channel, data) -> @test(compare(decode(data, MyMessage), msg1)))
+    subscribe(lcmlog, "CHANNEL_2", (channel, msg) -> @test(compare(msg, msg2)), MyMessage)
+    lcmlog
 end
 
-function foroverrun()
-  # record a temporary log file
-  lcmlogdir = joinpath(dirname(@__FILE__),"testdata","testlog.lcm")
-
-  # recreate the messages locally for comparison with those in the test log file
-  msg1 = MyMessage(23, 1.234)
-  msg2 = MyMessage(24, 2.345)
-
-  lc = LCMLog(lcmlogdir)
-  subscribe(lc, "CHANNEL_1", (c, d) -> handledata(c, d, msg1) )
-  subscribe(lc, "CHANNEL_2", (c, m) -> handletype(c, m, msg2), MyMessage)
-  # Consume the log file
-  handlefile(lc, N=100)
-  @test true
-  close(lc)
-  nothing
+@testset "LCM log overrun" begin
+    lcmlog = make_test_lcmlog()
+    handle_file(lcmlog, N=100)
+    close(lcmlog)
 end
 
-function whilestyle()
-  # record a temporary log file
-  lcmlogdir = joinpath(dirname(@__FILE__),"testdata","testlog.lcm")
-
-  # recreate the messages locally for comparison with those in the test log file
-  msg1 = MyMessage(23, 1.234)
-  msg2 = MyMessage(24, 2.345)
-
-  lc = LCMLog(lcmlogdir)
-  subscribe(lc, "CHANNEL_1", (c, d) -> handledata(c, d, msg1) )
-  subscribe(lc, "CHANNEL_2", (c, m) -> handletype(c, m, msg2), MyMessage)
-  # Consume the log file
-  while handle(lc); end
-  @test true
-  close(lc)
-  nothing
-end
-
-@testset "reading LCM log directly" begin
-  foroverrun()
-  whilestyle()
-  @test_throws ArgumentError LCMLog("doesnt.exs")
+@testset "Read until end" begin
+    lcmlog = make_test_lcmlog()
+    while handle(lcmlog); end
+    close(lcmlog)
 end
 
 ## Code used to create the testlog.lcm LCM log file used in this test
@@ -94,6 +44,3 @@ end
 # publish(lcm, "CHANNEL_2", msg2)
 # # terminate lcm-logger
 # close(lcm)
-
-
-#
