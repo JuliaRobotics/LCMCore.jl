@@ -97,3 +97,25 @@ end
     @test d === lcmt2.d
     @test f === lcmt2.f
 end
+
+@testset "LCMType: handle" begin
+    channel = "CHANNEL_1"
+    msg = rand(lcm_test_type_1)
+
+    # start listening
+    sublcm = LCM()
+    check_msg = let expected = msg
+        (channel, msg) -> @test(msg == expected)
+    end
+    sub = subscribe(sublcm, channel, check_msg, lcm_test_type_1)
+    set_queue_capacity(sub, 2)
+
+    # publish two messages
+    publcm = LCM()
+    for _ = 1 : 2
+        publish(publcm, channel, msg)
+    end
+
+    # handle
+    LCMCore.lcm_handle(sublcm)
+end
