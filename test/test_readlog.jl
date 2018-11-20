@@ -35,6 +35,28 @@ end
     close(lcmlog)
 end
 
+# Test for issue #56
+using LCMCore, CaesarLCMTypes
+using JSON
+@testset "Encode/decode issue #56" begin
+    function handleData(channel, msg::image_metadata_t, msgs)
+        @show msg
+        push!(msgs, msg)
+    end
+
+    msgs = []
+    lcmlogdir = joinpath(dirname(@__FILE__),"testdata","image_metadata_log.lcm")
+    lc = LCMLog(lcmlogdir)
+    LCMCore.subscribe(lc, "CHANNEL_1", (c, d) -> handleData(c, d, msgs), image_metadata_t)
+
+    # Run while there is data
+    while handle(lc)
+    end
+    close(lc)
+    # If this works then the encode/decode issue is resolved
+    @test length(msgs) > 0
+end
+
 ## Code used to create the testlog.lcm LCM log file used in this test
 # lcm = LCM()
 # msg1 = MyMessage(23, 1.234)
