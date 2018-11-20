@@ -348,11 +348,11 @@ function encodefield(io::IO, A::AbstractArray)
 end
 
 # Sugar
-encode(data::Vector{UInt8}, x::LCMType) = encode(FastWriteBuffer(data), x)
+encode(data::AbstractVector{UInt8}, x::LCMType) = encode(FastWriteBuffer(data), x)
 encode(x::LCMType) = (stream = FastWriteBuffer(); encode(stream, x); flush(stream); take!(stream))
 
-decode!(x::LCMType, data::Vector{UInt8}) = decode!(x, FastReadBuffer(data))
-decode(data::Vector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
+decode!(x::LCMType, data::AbstractVector{UInt8}) = decode!(x, FastReadBuffer(data))
+decode(data::AbstractVector{UInt8}, ::Type{T}) where {T<:LCMType} = decode!(T(), data)
 
 # @lcmtypesetup macro and related functions
 """
