@@ -85,15 +85,34 @@ end
   @test_throws ArgumentError LCMLog("doesnt.exs")
 end
 
-## Code used to create the testlog.lcm LCM log file used in this test
-# lcm = LCM()
-# msg1 = MyMessage(23, 1.234)
-# msg2 = MyMessage(24, 2.345)
+# Test for issue #56
+using LCMCore, CaesarLCMTypes
+using JSON
+@testset "Encode/decode issue #56" begin
+    function handleData(channel, msg::image_metadata_t, msgs)
+        @show msg
+        push!(msgs, msg)
+    end
+
+    msgs = []
+    lcmlogdir = joinpath(dirname(@__FILE__),"testdata","image_metadata_log.lcm")
+    lc = LCMLog(lcmlogdir)
+    LCMCore.subscribe(lc, "CHANNEL_1", (c, d) -> handleData(c, d, msgs), image_metadata_t)
+
+    # Run while there is data
+    while handle(lc)
+    end
+    close(lc)
+    # If this works then the encode/decode issue is resolved
+    @test length(msgs) > 0
+end
+
+## Code used to create the image_metadata_log.lcm LCM log file used in this test
+# using CaesarLCMTypes
+# lc = LCM()
+# msg1 = image_metadata_t("KEY1", 0, [])
 # # run `lcm-logger testlog.lcm`
-# publish(lcm, "CHANNEL_1", msg1)
-# publish(lcm, "CHANNEL_2", msg2)
+# LCMCore.publish(lc, "CHANNEL_1", msg1)
+# LCMCore.publish(lc, "CHANNEL_1", msg1)
 # # terminate lcm-logger
-# close(lcm)
-
-
-#
+# LCMCore.close(lc)
