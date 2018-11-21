@@ -36,8 +36,7 @@ end
 end
 
 # Test for issue #56
-using LCMCore, CaesarLCMTypes
-using JSON
+include(joinpath(dirname(@__FILE__), "lcmtypes", "image_metadata_t.jl"))
 @testset "Encode/decode issue #56" begin
     function handleData(channel, msg::image_metadata_t, msgs)
         @show msg
@@ -53,8 +52,8 @@ using JSON
     while handle(lc)
     end
     close(lc)
-    # If this works then the encode/decode issue is resolved
-    @test length(msgs) > 0
+    # Assert - should be 2 messages
+    @test length(msgs) == 2
 end
 
 ## Code used to create the testlog.lcm LCM log file used in this test
