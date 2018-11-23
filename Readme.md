@@ -9,6 +9,11 @@ LCMCore.jl provides a low-level Julia interface to the [Lightweight Communicatio
 
 # Installation
 
+The following package is required (Ubuntu 18.04):
+```bash
+sudo apt-get install libglib2.0-dev
+```
+
 From Julia, you can do:
 
 ```julia
