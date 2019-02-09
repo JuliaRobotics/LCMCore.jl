@@ -21,12 +21,11 @@ end
 validate_lcm(name, handle) = occursin(dirname(@__FILE__), name)
 
 @static if Sys.islinux()
-    python = library_dependency("python", aliases=["libpython2.7.so", "libpython3.2.so", "libpython3.3.so", "libpython3.4.so", "libpython3.5.so", "libpython3.6.so", "libpython3.7.so", "libpython3.8.so"], validate=cflags_validator("python", "python2", "python3"))
-    glib = library_dependency("glib", aliases=["libglib-2.0-0", "libglib-2.0", "libglib-2.0.so.0"], depends=[python], validate=cflags_validator("glib-2.0"))
+    glib = library_dependency("glib", aliases=["libglib-2.0-0", "libglib-2.0", "libglib-2.0.so.0"], validate=cflags_validator("glib-2.0"))
     lcm = library_dependency("lcm", aliases=["liblcm", "liblcm.1"], depends=[glib],
                              validate=validate_lcm)
 
-    provides(AptGet, Dict("python-dev" => python, "libglib2.0-dev" => glib))
+    provides(AptGet, Dict("libglib2.0-dev" => glib))
 else
     glib = library_dependency("glib", aliases = ["libglib-2.0-0", "libglib-2.0", "libglib-2.0.so.0"])
     lcm = library_dependency("lcm", aliases=["liblcm", "liblcm.1"], depends=[glib],
