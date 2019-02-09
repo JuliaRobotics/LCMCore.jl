@@ -20,7 +20,7 @@ From Julia, you can do:
 Pkg.add("LCMCore")
 ```
 
-Installing LCMCore.jl will automatically download and build a new copy of the LCM library for you. 
+Installing LCMCore.jl will automatically download and build a new copy of the LCM library for you.
 
 # Usage
 
@@ -118,11 +118,9 @@ decode(data::Vector{UInt8}, ::Type{MyMessageType}) = <return an instance of MyMe
 
 ## Complex Message Types
 
-Manually defining `encode()` and `decode()` functions is annoying, so we provide two more convenient ways of automating the process:
+Manually defining `encode()` and `decode()` functions is annoying, so we provide a convenient way to automate the process:
 
-### Pure Julia: LCMType and @lcmtypesetup()
-
-LCMCore.jl provides the `LCMType` abstract type and the `@lcmtypesetup` macro to make it easy to describe LCM message types in pure Julia. To use this approach, simply create a `mutable struct` which is a subtype of `LCMType`, and make sure that struct's field names and types match the LCM type definition. For a real-world example, check out CaesarLCMTypes.jl: 
+LCMCore.jl provides the `LCMType` abstract type and the `@lcmtypesetup` macro to make it easy to describe LCM message types in pure Julia. To use this approach, simply create a `mutable struct` which is a subtype of `LCMType`, and make sure that struct's field names and types match the LCM type definition. For a real-world example, check out CaesarLCMTypes.jl:
 
 * Type definition: [example_t.jl](https://github.com/JuliaRobotics/CaesarLCMTypes.jl/blob/bb26d44b1b04ba777049ec7f62f070e8ff2df5c5/src/example_t.jl)
 * Sender: [example_sender.jl](https://github.com/JuliaRobotics/CaesarLCMTypes.jl/blob/bb26d44b1b04ba777049ec7f62f070e8ff2df5c5/examples/example_sender.jl)
@@ -152,7 +150,7 @@ end
 @lcmtypesetup(example_t)
 ```
 
-The call to `@lcmtypesetup(example_t)` analyzes the field names and types of our Julia struct to generate efficient `encode()` and `decode()` methods. Note the use of SVectors from StaticArrays.jl to represent the fixed-length `position` array in the LCM type. 
+The call to `@lcmtypesetup(example_t)` analyzes the field names and types of our Julia struct to generate efficient `encode()` and `decode()` methods. Note the use of SVectors from StaticArrays.jl to represent the fixed-length `position` array in the LCM type.
 
 LCM types frequently contain variable-length vectors of primitives or other LCM types. For example, if we have the following LCM type definition:
 
@@ -166,7 +164,7 @@ struct example_vector_t {
 }
 ```
 
-then we simply need to pass two additional arguments to `@lcmtypesetup`: 
+then we simply need to pass two additional arguments to `@lcmtypesetup`:
 
 ```julia
 mutable struct example_vector_t <: LCMType
@@ -183,7 +181,7 @@ end
 )
 ```
 
-The format of each additional argument to `@lcmtypesetup` is `field_name => tuple_of_size_fields`. 
+The format of each additional argument to `@lcmtypesetup` is `field_name => tuple_of_size_fields`.
 
 Multi-dimensional arrays are also supported, including arrays with some fixed dimensions and some variable dimensions:
 
@@ -215,11 +213,6 @@ end
   coordinates => (3, num_points)
 )
 ```
-
-### PyLCM: Automatic encoding and decoding through Python
-
-If you don't want to bother with re-defining your LCM types in Julia, then there is an even simpler approach. The [PyLCM.jl](https://github.com/rdeits/PyLCM.jl) uses LCMCore.jl under the hood, and it also allows you to also encode and decode any Python LCM type automatically. Performance of PyLCM will be significantly worse than the pure-Julia approach, but it can be very convenient. 
-
 
 ## Reading LCM log files directly
 
