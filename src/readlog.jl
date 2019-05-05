@@ -41,6 +41,15 @@ function lcm_eventlog_read_next_event(_log::Ptr{lcm_eventlog_t})
     )
 end
 
+function lcm_event_destroy(event::Ptr{LCMCore.lcm_eventlog_event_t})
+    ccall(
+    (:lcm_eventlog_free_event, LCMCore.liblcm),
+    Cvoid,
+    (Ptr{LCMCore.lcm_eventlog_event_t}, ),
+    event
+    )
+end
+
 #
 # Doesn't work yet
 # event = unsafe_wrap(lcm_eventlog_event_t, _event, dim??)
