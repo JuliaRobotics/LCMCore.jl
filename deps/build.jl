@@ -1,6 +1,11 @@
+append!(empty!(LOAD_PATH), Base.DEFAULT_LOAD_PATH)
+using Pkg
+
+Pkg.activate(@__DIR__)
+Pkg.instantiate()
+
 using BinDeps
 using CMakeWrapper
-using Pkg
 
 @BinDeps.setup
 
