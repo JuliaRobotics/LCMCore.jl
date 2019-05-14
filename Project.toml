@@ -1,0 +1,26 @@
+name = "LCMCore"
+uuid = "0ea44823-1ff1-5b9a-8293-5fd55a38e746"
+version = "0.6.0"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+FastIOBuffers = "6ccb8d0d-f5f8-5ae0-a392-f5aa62729a81"
+FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
+
+[compat]
+FastIOBuffers = "≥ 0.2.0"
+StaticArrays = "≥ 0.5.0"
+UnsafeArrays = "≥ 0.2.0"
+julia = "≥ 0.7.0"
+
+[extras]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Dates", "FileWatching", "Test", "Random"]
