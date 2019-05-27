@@ -1,5 +1,6 @@
 deps/*
 !deps/build.jl
 !deps/Project.toml
+!deps/Manifest.toml
 /Manifest.toml
 
