@@ -1,6 +1,6 @@
 name = "LCMCore"
 uuid = "0ea44823-1ff1-5b9a-8293-5fd55a38e746"
-version = "0.6.0"
+version = "0.6.1"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
